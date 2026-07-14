@@ -47,6 +47,46 @@ test("parses strict JSON model results including fenced output", () => {
   );
 });
 
+test("uses a low initial classification budget and a bounded recovery budget", () => {
+  assert.equal(api.getClassificationTokenBudget(1), 190);
+  assert.equal(api.getClassificationTokenBudget(10), 820);
+  assert.equal(api.getClassificationTokenBudget(100), 900);
+  assert.equal(api.getClassificationTokenBudget(1, true), 1200);
+  assert.equal(api.getClassificationTokenBudget(10, true), 2040);
+  assert.equal(api.getClassificationTokenBudget(100, true), 2400);
+});
+
+test("diagnoses empty and truncated structured model responses", () => {
+  const emptyInfo = api.getModelResponseInfo({
+    choices: [{ finish_reason: "stop", message: { content: "" } }],
+  });
+  assert.equal(emptyInfo.hasText, false);
+  assert.equal(emptyInfo.finishReason, "stop");
+
+  const error = api.createStructuredOutputError(
+    new Error("模型结果中没有 JSON 对象"),
+    {
+      choices: [{ finish_reason: "length", message: { content: '{"results":[' } }],
+      usage: {
+        completion_tokens: 1200,
+        completion_tokens_details: { reasoning_tokens: 1000 },
+      },
+    }
+  );
+  assert.match(error.message, /JSON 输出被截断/);
+  assert.equal(error.parseFailure, true);
+  assert.equal(error.finishReason, "length");
+  assert.equal(error.reasoningTokens, 1000);
+});
+
+test("does not requeue structured output failures with unchanged parameters", () => {
+  assert.equal(api.isRetryableBatchError({ status: 0, parseFailure: true }), false);
+  assert.equal(api.isRetryableBatchError({ status: 0 }), true);
+  assert.equal(api.isRetryableBatchError({ status: 429 }), true);
+  assert.equal(api.isRetryableBatchError({ status: 503 }), true);
+  assert.equal(api.isRetryableBatchError({ status: 400 }), false);
+});
+
 test("parses and normalizes AI learning results", () => {
   const result = api.parseLearningResult(
     '```json\n{"analysis":"偏好回避夸张猎奇标题","traits":["夸张猎奇","制造焦虑"],"learnedProfile":"不喜欢依靠夸张猎奇或制造焦虑吸引点击的视频"}\n```'

@@ -97,6 +97,9 @@
     ]);
 
     const evaluatedTitles = [];
+    let truncatedResponseSent = false;
+    let firstClassificationBudget = 0;
+    let recoveryRequestCount = 0;
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
     window.GM_setValue = (key, value) => store.set(key, value);
@@ -125,6 +128,24 @@
         return;
       }
       evaluatedTitles.push(...userPayload.items.map((item) => item.title));
+      if (!truncatedResponseSent) {
+        truncatedResponseSent = true;
+        firstClassificationBudget = request.max_tokens;
+        setTimeout(() => options.onload({
+          status: 200,
+          responseText: JSON.stringify({
+            choices: [{
+              finish_reason: "length",
+              message: { content: "" }
+            }],
+            usage: { completion_tokens: request.max_tokens }
+          })
+        }), 20);
+        return;
+      }
+      if (request.max_tokens > firstClassificationBudget) {
+        recoveryRequestCount += 1;
+      }
       const results = userPayload.items.map((item) => ({
         id: item.id,
         match: item.title.includes("擦边"),
@@ -134,7 +155,10 @@
       setTimeout(() => options.onload({
         status: 200,
         responseText: JSON.stringify({
-          choices: [{ message: { content: JSON.stringify({ results }) } }]
+          choices: [{
+            finish_reason: "stop",
+            message: { content: JSON.stringify({ results }) }
+          }]
         })
       }), 20);
     };
@@ -215,6 +239,9 @@
       const noAutoBlacklistBeforeSuggestion = window.__bafPreBlock?.noAutoBlacklist
         && window.__bafPreBlock?.sameUpVisible
         && window.__bafPreBlock?.suggestionVisible;
+      const adaptiveJsonRecovery = truncatedResponseSent
+        && recoveryRequestCount === 1
+        && firstClassificationBudget < 1200;
       const passed = matchedHidden
         && sameUpHidden
         && safeVisible
@@ -233,7 +260,8 @@
         && upWhiteVisible
         && localRulesSkippedAi
         && cacheReused
-        && cachePersisted;
+        && cachePersisted
+        && adaptiveJsonRecovery;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
       result.dataset.details = JSON.stringify({
@@ -256,6 +284,9 @@
         localRulesSkippedAi,
         cacheReused,
         cachePersisted,
+        adaptiveJsonRecovery,
+        recoveryRequestCount,
+        firstClassificationBudget,
         safeEvaluationCount
       });
     }, 3800);
