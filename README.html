@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>B站首页 AI UP 主过滤器</title>
+</head>
+<body>
+  <h1>B站首页 AI UP 主过滤器</h1>
+
+  <p>当前版本：<strong>v0.1.0</strong></p>
+
+  <p>这是一个 Tampermonkey 用户脚本。它会读取 B 站首页新出现的推荐卡片，批量调用用户配置的 AI 接口进行语义判断；命中后将对应 UP 主的 UID 保存到本地黑名单，并隐藏该 UP 主当前及之后出现的首页推荐。</p>
+
+  <h2>当前版本范围</h2>
+  <ul>
+    <li>只处理 <code>https://www.bilibili.com/</code> 首页。</li>
+    <li>支持首页首屏、无限滚动和“换一换”产生的新卡片。</li>
+    <li>不处理搜索页、排行榜、视频页、B站 App 或观看历史。</li>
+    <li>判断失败时保持视频显示，不会因为 API 故障自动拉黑。</li>
+  </ul>
+
+  <h2>安装</h2>
+  <ol>
+    <li>在 Chrome 或 Edge 安装 Tampermonkey。</li>
+    <li>在 Tampermonkey 中新建脚本。</li>
+    <li>复制 <code>bilibili-ai-up-filter.user.js</code> 的全部内容并保存。</li>
+    <li>打开或刷新 B 站首页，右下角会显示“AI 过滤”按钮。</li>
+  </ol>
+
+  <h2>配置</h2>
+  <ol>
+    <li>点击页面右下角“AI 过滤”，或使用 Tampermonkey 菜单中的“打开 B站首页 AI 过滤设置”。</li>
+    <li>填写要过滤的内容描述，例如“擦边、夸张猎奇、标题党的内容”。</li>
+    <li>选择 DeepSeek 或 AiHubMix，填写模型名和对应的 API Key。</li>
+    <li>点击“测试连接”，确认接口可以返回脚本要求的 JSON。</li>
+    <li>点击“保存”，脚本会开始判断首页推荐。</li>
+  </ol>
+
+  <p>DeepSeek 默认模型为 <code>deepseek-v4-flash</code>，AiHubMix 默认模型为 <code>gpt-4o-mini</code>。如果服务商调整模型名称，可以直接在设置中修改。</p>
+
+  <h2>黑名单与备份</h2>
+  <ul>
+    <li>黑名单使用 UP 主 UID 作为唯一键，保存在 Tampermonkey 本地存储中。</li>
+    <li>可在设置面板中删除误判的 UP 主。</li>
+    <li>“导出”会保存过滤描述、非敏感设置和黑名单。</li>
+    <li>导出文件不会包含 API Key。</li>
+    <li>“导入”会按 UID 合并黑名单，并保留当前设备的 API Key。</li>
+  </ul>
+
+  <h2>隐私说明</h2>
+  <p>AI 判断会把过滤描述、视频标题和页面显示的 UP 主名称发送给所选 API 服务商。脚本不会主动发送 B 站 Cookie、账号资料或页面正文。API Key 仅存放在当前 Tampermonkey 脚本存储中，但浏览器本地存储不等同于系统级密码保险箱。</p>
+
+  <h2>开发检查</h2>
+  <p>在本目录运行以下命令：</p>
+  <pre><code>node --check bilibili-ai-up-filter.user.js
+node --test tests/core.test.js</code></pre>
+
+  <h2>项目文档</h2>
+  <ul>
+    <li><a href="CHANGELOG.html">版本记录</a></li>
+    <li><a href="KNOWN_ISSUES.html">已知问题</a></li>
+  </ul>
+</body>
+</html>

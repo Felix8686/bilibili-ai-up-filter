@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>B站 AI 过滤首页集成测试</title>
+</head>
+<body>
+  <div class="bili-video-card" id="matched-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Matched01" title="擦边标题示例">擦边标题示例</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="same-up-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SameUp002" title="普通标题但来自同一 UP">普通标题但来自同一 UP</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="safe-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Safe00003" title="正常科普视频">正常科普视频</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">正常 UP</a>
+  </div>
+
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 1,
+        enabled: true,
+        description: "擦边内容",
+        provider: "deepseek",
+        models: {
+          deepseek: "deepseek-v4-flash",
+          aihubmix: "gpt-4o-mini"
+        }
+      })],
+      ["baf.secret.v1", JSON.stringify({
+        schemaVersion: 1,
+        keys: { deepseek: "test-key", aihubmix: "" }
+      })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 1, entries: {} })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = (options) => {
+      const request = JSON.parse(options.data);
+      const userPayload = JSON.parse(request.messages[1].content);
+      if (userPayload.items.some((item) => item.title.includes("接口失败"))) {
+        setTimeout(() => options.onload({
+          status: 429,
+          responseText: JSON.stringify({ error: { message: "rate limited" } })
+        }), 20);
+        return;
+      }
+      const results = userPayload.items.map((item) => ({
+        id: item.id,
+        match: item.title.includes("擦边"),
+        confidence: item.title.includes("擦边") ? 0.96 : 0.12,
+        reason: item.title.includes("擦边") ? "命中测试描述" : "不匹配"
+      }));
+      setTimeout(() => options.onload({
+        status: 200,
+        responseText: JSON.stringify({
+          choices: [{ message: { content: JSON.stringify({ results }) } }]
+        })
+      }), 20);
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      const failedCard = document.createElement("div");
+      failedCard.className = "bili-video-card";
+      failedCard.id = "failed-api-card";
+      failedCard.innerHTML = `
+        <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Failed004" title="接口失败测试视频">接口失败测试视频</a>
+        <a class="bili-video-card__info--author" href="https://space.bilibili.com/30003">故障测试 UP</a>
+      `;
+      document.body.appendChild(failedCard);
+    }, 800);
+
+    setTimeout(() => {
+      const matchedHidden = document.querySelector("#matched-card").classList.contains("baf-hidden");
+      const sameUpHidden = document.querySelector("#same-up-card").classList.contains("baf-hidden");
+      const safeVisible = !document.querySelector("#safe-card").classList.contains("baf-hidden");
+      const saved = JSON.parse(store.get("baf.blacklist.v1"));
+      const blacklisted = Boolean(saved.entries["10001"]);
+      const failedApiVisible = !document.querySelector("#failed-api-card").classList.contains("baf-hidden");
+      const failedApiNotBlacklisted = !saved.entries["30003"];
+      const passed = matchedHidden
+        && sameUpHidden
+        && safeVisible
+        && blacklisted
+        && failedApiVisible
+        && failedApiNotBlacklisted;
+      const result = document.querySelector("#baf-test-result");
+      result.textContent = passed ? "PASS" : "FAIL";
+      result.dataset.details = JSON.stringify({
+        matchedHidden,
+        sameUpHidden,
+        safeVisible,
+        blacklisted,
+        failedApiVisible,
+        failedApiNotBlacklisted
+      });
+    }, 2600);
+  </script>
+</body>
+</html>
