@@ -47,6 +47,46 @@ test("parses strict JSON model results including fenced output", () => {
   );
 });
 
+test("parses and normalizes AI learning results", () => {
+  const result = api.parseLearningResult(
+    '```json\n{"analysis":"偏好回避夸张猎奇标题","traits":["夸张猎奇","制造焦虑"],"learnedProfile":"不喜欢依靠夸张猎奇或制造焦虑吸引点击的视频"}\n```'
+  );
+  assert.equal(result.analysis, "偏好回避夸张猎奇标题");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(result.traits)),
+    ["夸张猎奇", "制造焦虑"]
+  );
+  assert.match(result.learnedProfile, /夸张猎奇/);
+});
+
+test("rejects incomplete AI learning results", () => {
+  assert.throws(
+    () => api.parseLearningResult('{"analysis":"只有分析","traits":[]}'),
+    /学习结果格式/
+  );
+});
+
+test("normalizes manual dislike samples and drops invalid BVIDs", () => {
+  const learning = api.normalizeLearning({
+    learnedProfile: "  不喜欢标题党  ",
+    updatedAt: "2026-07-14T02:00:00.000Z",
+    samples: {
+      good: {
+        bvid: "BV1Good001",
+        title: "  测试\n标题  ",
+        uid: "123",
+        upName: "测试 UP",
+        addedAt: "2026-07-14T01:00:00.000Z",
+        traits: [" 标题党 ", "夸张"],
+      },
+      bad: { bvid: "av123", title: "无效" },
+    },
+  });
+  assert.equal(learning.learnedProfile, "不喜欢标题党");
+  assert.equal(Object.keys(learning.samples).length, 1);
+  assert.equal(learning.samples.BV1Good001.title, "测试 标题");
+});
+
 test("rejects model output that omits an expected item", () => {
   assert.throws(
     () => api.parseModelResults(
@@ -99,12 +139,25 @@ test("creates backups without any API key field", () => {
         },
       },
     },
-    "2026-07-14T01:00:00.000Z"
+    "2026-07-14T01:00:00.000Z",
+    {
+      learnedProfile: "不喜欢标题党",
+      updatedAt: "2026-07-14T00:30:00.000Z",
+      samples: {
+        BV1Sample01: {
+          bvid: "BV1Sample01",
+          title: "夸张标题示例",
+          addedAt: "2026-07-14T00:20:00.000Z",
+        },
+      },
+    }
   );
   const serialized = JSON.stringify(backup);
   assert.equal(serialized.includes("apiKey"), false);
   assert.equal(serialized.includes("secret"), false);
   assert.equal(backup.blacklist.length, 1);
+  assert.equal(backup.schemaVersion, 2);
+  assert.equal(backup.learning.samples.BV1Sample01.title, "夸张标题示例");
 });
 
 test("uses the fixed 0.80 confidence threshold", () => {

@@ -20,6 +20,11 @@
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">正常 UP</a>
   </div>
 
+  <div class="bili-video-card" id="manual-dislike-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Manual005" title="让用户主动标记的视频">让用户主动标记的视频</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/40004">手动样本 UP</a>
+  </div>
+
   <div id="baf-test-result">PENDING</div>
 
   <script>
@@ -39,7 +44,13 @@
         schemaVersion: 1,
         keys: { deepseek: "test-key", aihubmix: "" }
       })],
-      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 1, entries: {} })]
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 1, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 2,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })]
     ]);
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
@@ -48,6 +59,19 @@
     window.GM_xmlhttpRequest = (options) => {
       const request = JSON.parse(options.data);
       const userPayload = JSON.parse(request.messages[1].content);
+      if (userPayload.dislikedVideo) {
+        setTimeout(() => options.onload({
+          status: 200,
+          responseText: JSON.stringify({
+            choices: [{ message: { content: JSON.stringify({
+              analysis: "用户不喜欢该类主动标记的视频",
+              traits: ["主动标记样本"],
+              learnedProfile: "过滤与手动不喜欢样本特征相似的视频"
+            }) } }]
+          })
+        }), 20);
+        return;
+      }
       if (userPayload.items.some((item) => item.title.includes("接口失败"))) {
         setTimeout(() => options.onload({
           status: 429,
@@ -83,6 +107,17 @@
     }, 800);
 
     setTimeout(() => {
+      const manualCard = document.querySelector("#manual-dislike-card");
+      manualCard.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 40
+      }));
+      document.querySelector("#baf-dislike").click();
+    }, 1200);
+
+    setTimeout(() => {
       const matchedHidden = document.querySelector("#matched-card").classList.contains("baf-hidden");
       const sameUpHidden = document.querySelector("#same-up-card").classList.contains("baf-hidden");
       const safeVisible = !document.querySelector("#safe-card").classList.contains("baf-hidden");
@@ -90,12 +125,23 @@
       const blacklisted = Boolean(saved.entries["10001"]);
       const failedApiVisible = !document.querySelector("#failed-api-card").classList.contains("baf-hidden");
       const failedApiNotBlacklisted = !saved.entries["30003"];
+      const manualDislikeHidden = document.querySelector("#manual-dislike-card").classList.contains("baf-hidden");
+      const manualUpNotBlacklisted = !saved.entries["40004"];
+      const savedLearning = JSON.parse(store.get("baf.learning.v1"));
+      const manualSampleSaved = Boolean(savedLearning.samples.BV1Manual005);
+      const manualSampleAnalyzed = Boolean(savedLearning.samples.BV1Manual005?.analyzedAt);
+      const learnedProfileSaved = savedLearning.learnedProfile.includes("手动不喜欢样本");
       const passed = matchedHidden
         && sameUpHidden
         && safeVisible
         && blacklisted
         && failedApiVisible
-        && failedApiNotBlacklisted;
+        && failedApiNotBlacklisted
+        && manualDislikeHidden
+        && manualUpNotBlacklisted
+        && manualSampleSaved
+        && manualSampleAnalyzed
+        && learnedProfileSaved;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
       result.dataset.details = JSON.stringify({
@@ -104,9 +150,14 @@
         safeVisible,
         blacklisted,
         failedApiVisible,
-        failedApiNotBlacklisted
+        failedApiNotBlacklisted,
+        manualDislikeHidden,
+        manualUpNotBlacklisted,
+        manualSampleSaved,
+        manualSampleAnalyzed,
+        learnedProfileSaved
       });
-    }, 2600);
+    }, 3000);
   </script>
 </body>
 </html>
