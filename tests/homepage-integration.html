@@ -10,6 +10,16 @@
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
   </div>
 
+  <div class="bili-video-card" id="matched-card-2">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Matched02" title="第二个擦边标题">第二个擦边标题</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="matched-card-3">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Matched03" title="第三个擦边标题">第三个擦边标题</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
+  </div>
+
   <div class="bili-video-card" id="same-up-card">
     <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SameUp002" title="普通标题但来自同一 UP">普通标题但来自同一 UP</a>
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">目标 UP</a>
@@ -23,6 +33,21 @@
   <div class="bili-video-card" id="manual-dislike-card">
     <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Manual005" title="让用户主动标记的视频">让用户主动标记的视频</a>
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/40004">手动样本 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="local-black-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Local006" title="本地屏蔽规则测试">本地屏蔽规则测试</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/60006">本地规则 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="title-white-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1White007" title="擦边但属于白名单例外">擦边但属于白名单例外</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/70007">标题白名单 UP</a>
+  </div>
+
+  <div class="bili-video-card" id="up-white-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1White008" title="擦边但来自白名单 UP">擦边但来自白名单 UP</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/50005">白名单 UP</a>
   </div>
 
   <div id="baf-test-result">PENDING</div>
@@ -50,8 +75,28 @@
         samples: {},
         learnedProfile: "",
         updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: ["本地屏蔽"],
+        titleWhitelist: ["白名单例外"],
+        upWhitelist: {
+          "50005": {
+            uid: "50005",
+            name: "白名单 UP",
+            addedAt: "2026-07-14T00:00:00.000Z"
+          }
+        },
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
       })]
     ]);
+
+    const evaluatedTitles = [];
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
     window.GM_setValue = (key, value) => store.set(key, value);
@@ -79,6 +124,7 @@
         }), 20);
         return;
       }
+      evaluatedTitles.push(...userPayload.items.map((item) => item.title));
       const results = userPayload.items.map((item) => ({
         id: item.id,
         match: item.title.includes("擦边"),
@@ -96,15 +142,14 @@
   <script src="../bilibili-ai-up-filter.user.js"></script>
   <script>
     setTimeout(() => {
-      const failedCard = document.createElement("div");
-      failedCard.className = "bili-video-card";
-      failedCard.id = "failed-api-card";
-      failedCard.innerHTML = `
-        <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Failed004" title="接口失败测试视频">接口失败测试视频</a>
-        <a class="bili-video-card__info--author" href="https://space.bilibili.com/30003">故障测试 UP</a>
-      `;
-      document.body.appendChild(failedCard);
-    }, 800);
+      const savedBefore = JSON.parse(store.get("baf.blacklist.v1"));
+      window.__bafPreBlock = {
+        noAutoBlacklist: !savedBefore.entries["10001"],
+        sameUpVisible: !document.querySelector("#same-up-card").classList.contains("baf-hidden"),
+        suggestionVisible: document.querySelector("#baf-up-suggestions").textContent.includes("是否拉黑")
+      };
+      document.querySelector("#baf-up-suggestions button")?.click();
+    }, 750);
 
     setTimeout(() => {
       const manualCard = document.querySelector("#manual-dislike-card");
@@ -118,11 +163,37 @@
     }, 1200);
 
     setTimeout(() => {
+      window.__cacheSafeCountBefore = evaluatedTitles
+        .filter((title) => title === "正常科普视频").length;
+      document.querySelector("#safe-card").remove();
+      const replacement = document.createElement("div");
+      replacement.className = "bili-video-card";
+      replacement.id = "safe-card-reloaded";
+      replacement.innerHTML = `
+        <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Safe00003" title="正常科普视频">正常科普视频</a>
+        <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">正常 UP</a>
+      `;
+      document.body.appendChild(replacement);
+    }, 1900);
+
+    setTimeout(() => {
+      const failedCard = document.createElement("div");
+      failedCard.className = "bili-video-card";
+      failedCard.id = "failed-api-card";
+      failedCard.innerHTML = `
+        <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Failed004" title="接口失败测试视频">接口失败测试视频</a>
+        <a class="bili-video-card__info--author" href="https://space.bilibili.com/30003">故障测试 UP</a>
+      `;
+      document.body.appendChild(failedCard);
+    }, 2500);
+
+    setTimeout(() => {
       const matchedHidden = document.querySelector("#matched-card").classList.contains("baf-hidden");
       const sameUpHidden = document.querySelector("#same-up-card").classList.contains("baf-hidden");
-      const safeVisible = !document.querySelector("#safe-card").classList.contains("baf-hidden");
+      const safeVisible = !document.querySelector("#safe-card-reloaded").classList.contains("baf-hidden");
       const saved = JSON.parse(store.get("baf.blacklist.v1"));
       const blacklisted = Boolean(saved.entries["10001"]);
+      const manuallyConfirmed = saved.entries["10001"]?.source === "manual";
       const failedApiVisible = !document.querySelector("#failed-api-card").classList.contains("baf-hidden");
       const failedApiNotBlacklisted = !saved.entries["30003"];
       const manualDislikeHidden = document.querySelector("#manual-dislike-card").classList.contains("baf-hidden");
@@ -131,17 +202,38 @@
       const manualSampleSaved = Boolean(savedLearning.samples.BV1Manual005);
       const manualSampleAnalyzed = Boolean(savedLearning.samples.BV1Manual005?.analyzedAt);
       const learnedProfileSaved = savedLearning.learnedProfile.includes("手动不喜欢样本");
+      const localBlackHidden = document.querySelector("#local-black-card").classList.contains("baf-hidden");
+      const titleWhiteVisible = !document.querySelector("#title-white-card").classList.contains("baf-hidden");
+      const upWhiteVisible = !document.querySelector("#up-white-card").classList.contains("baf-hidden");
+      const localRulesSkippedAi = !evaluatedTitles.includes("本地屏蔽规则测试")
+        && !evaluatedTitles.includes("擦边但属于白名单例外")
+        && !evaluatedTitles.includes("擦边但来自白名单 UP");
+      const safeEvaluationCount = evaluatedTitles
+        .filter((title) => title === "正常科普视频").length;
+      const cacheReused = safeEvaluationCount === window.__cacheSafeCountBefore;
+      const cachePersisted = Boolean(JSON.parse(store.get("baf.ai-cache.v1")).entries.BV1Safe00003);
+      const noAutoBlacklistBeforeSuggestion = window.__bafPreBlock?.noAutoBlacklist
+        && window.__bafPreBlock?.sameUpVisible
+        && window.__bafPreBlock?.suggestionVisible;
       const passed = matchedHidden
         && sameUpHidden
         && safeVisible
         && blacklisted
+        && manuallyConfirmed
+        && noAutoBlacklistBeforeSuggestion
         && failedApiVisible
         && failedApiNotBlacklisted
         && manualDislikeHidden
         && manualUpNotBlacklisted
         && manualSampleSaved
         && manualSampleAnalyzed
-        && learnedProfileSaved;
+        && learnedProfileSaved
+        && localBlackHidden
+        && titleWhiteVisible
+        && upWhiteVisible
+        && localRulesSkippedAi
+        && cacheReused
+        && cachePersisted;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
       result.dataset.details = JSON.stringify({
@@ -149,15 +241,24 @@
         sameUpHidden,
         safeVisible,
         blacklisted,
+        manuallyConfirmed,
+        noAutoBlacklistBeforeSuggestion,
         failedApiVisible,
         failedApiNotBlacklisted,
         manualDislikeHidden,
         manualUpNotBlacklisted,
         manualSampleSaved,
         manualSampleAnalyzed,
-        learnedProfileSaved
+        learnedProfileSaved,
+        localBlackHidden,
+        titleWhiteVisible,
+        upWhiteVisible,
+        localRulesSkippedAi,
+        cacheReused,
+        cachePersisted,
+        safeEvaluationCount
       });
-    }, 3000);
+    }, 3800);
   </script>
 </body>
 </html>

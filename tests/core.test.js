@@ -87,6 +87,48 @@ test("normalizes manual dislike samples and drops invalid BVIDs", () => {
   assert.equal(learning.samples.BV1Good001.title, "测试 标题");
 });
 
+test("matches normalized keyword and regex title rules", () => {
+  assert.equal(api.matchTitleRules("这是一个ＭＢＴＩ测试", ["mbti"]), "mbti");
+  assert.equal(api.matchTitleRules("教你月入十万", ["/月入|日赚/"]), "/月入|日赚/");
+  assert.equal(api.matchTitleRules("普通科普", ["/[invalid/"]), "");
+});
+
+test("normalizes UP whitelist and local rule lists", () => {
+  const rules = api.normalizeRules({
+    titleBlacklist: [" 卖课 ", "卖课", "/月入|日赚/"],
+    titleWhitelist: ["官方纪录片"],
+    upWhitelist: {
+      valid: { uid: "123", name: "优质 UP", addedAt: "2026-07-14T00:00:00.000Z" },
+      invalid: { uid: "abc", name: "无效" },
+    },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(rules.titleBlacklist)), ["卖课", "/月入|日赚/"]);
+  assert.equal(Object.keys(rules.upWhitelist).length, 1);
+  assert.equal(rules.upWhitelist["123"].name, "优质 UP");
+});
+
+test("parses AI candidate rules without enabling them", () => {
+  const result = api.parseRuleSuggestions(
+    '{"blacklist":["卖课","/月入|日赚/"],"whitelist":["官方纪录片"]}'
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(result.blacklist)), ["卖课", "/月入|日赚/"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.whitelist)), ["官方纪录片"]);
+});
+
+test("changes the AI cache criteria key only when semantic criteria change", () => {
+  const settings = {
+    enabled: true,
+    description: "标题党",
+    provider: "deepseek",
+    models: { deepseek: "deepseek-v4-flash" },
+  };
+  const base = api.createCriteriaKey(settings, { samples: {}, learnedProfile: "" });
+  const same = api.createCriteriaKey({ ...settings, enabled: false }, { samples: {}, learnedProfile: "" });
+  const changed = api.createCriteriaKey({ ...settings, description: "卖课" }, { samples: {}, learnedProfile: "" });
+  assert.equal(base, same);
+  assert.notEqual(base, changed);
+});
+
 test("rejects model output that omits an expected item", () => {
   assert.throws(
     () => api.parseModelResults(
@@ -150,14 +192,28 @@ test("creates backups without any API key field", () => {
           addedAt: "2026-07-14T00:20:00.000Z",
         },
       },
+    },
+    {
+      titleBlacklist: ["卖课"],
+      titleWhitelist: ["官方纪录片"],
+      upWhitelist: {
+        456: {
+          uid: "456",
+          name: "优质 UP",
+          addedAt: "2026-07-14T00:40:00.000Z",
+        },
+      },
     }
   );
   const serialized = JSON.stringify(backup);
   assert.equal(serialized.includes("apiKey"), false);
   assert.equal(serialized.includes("secret"), false);
   assert.equal(backup.blacklist.length, 1);
-  assert.equal(backup.schemaVersion, 2);
+  assert.equal(backup.schemaVersion, 3);
   assert.equal(backup.learning.samples.BV1Sample01.title, "夸张标题示例");
+  assert.deepEqual(JSON.parse(JSON.stringify(backup.rules.titleBlacklist)), ["卖课"]);
+  assert.equal(backup.rules.upWhitelist["456"].name, "优质 UP");
+  assert.equal(serialized.includes("aiCache"), false);
 });
 
 test("uses the fixed 0.80 confidence threshold", () => {
