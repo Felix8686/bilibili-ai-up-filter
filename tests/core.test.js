@@ -21,6 +21,20 @@ test("extracts BVID and UP UID from Bilibili URLs", () => {
   assert.equal(api.extractUid("https://www.bilibili.com/"), "");
 });
 
+test("extracts BV and AV video IDs from direct and encoded links", () => {
+  assert.equal(
+    api.extractVideoId("https://www.bilibili.com/video/av116921425004164?spm_id_from=333.1007"),
+    "av116921425004164"
+  );
+  assert.equal(api.extractVideoId("AV123456"), "av123456");
+  assert.equal(
+    api.extractVideoId("https://example.com/jump?url=https%3A%2F%2Fwww.bilibili.com%2Fvideo%2FBV1Ab411c7mD%3Fp%3D1"),
+    "BV1Ab411c7mD"
+  );
+  assert.equal(api.extractVideoId("https://www.bilibili.com/bangumi/play/ep123"), "");
+  assert.equal(api.extractBvid("https://www.bilibili.com/video/av123456"), "");
+});
+
 test("normalizes text and rejects unsupported providers", () => {
   assert.equal(api.normalizeText("  测试\n\t标题  "), "测试 标题");
   const settings = api.normalizeSettings({
@@ -120,7 +134,7 @@ test("rejects incomplete AI learning results", () => {
   );
 });
 
-test("normalizes manual dislike samples and drops invalid BVIDs", () => {
+test("normalizes BV and AV manual dislike samples and drops invalid IDs", () => {
   const learning = api.normalizeLearning({
     learnedProfile: "  不喜欢标题党  ",
     updatedAt: "2026-07-14T02:00:00.000Z",
@@ -133,12 +147,18 @@ test("normalizes manual dislike samples and drops invalid BVIDs", () => {
         addedAt: "2026-07-14T01:00:00.000Z",
         traits: [" 标题党 ", "夸张"],
       },
-      bad: { bvid: "av123", title: "无效" },
+      legacy: {
+        bvid: "AV123",
+        title: "旧式 AV 链接视频",
+        addedAt: "2026-07-14T01:30:00.000Z",
+      },
+      bad: { bvid: "ep123", title: "无效" },
     },
   });
   assert.equal(learning.learnedProfile, "不喜欢标题党");
-  assert.equal(Object.keys(learning.samples).length, 1);
+  assert.equal(Object.keys(learning.samples).length, 2);
   assert.equal(learning.samples.BV1Good001.title, "测试 标题");
+  assert.equal(learning.samples.av123.title, "旧式 AV 链接视频");
 });
 
 test("matches normalized keyword and regex title rules", () => {

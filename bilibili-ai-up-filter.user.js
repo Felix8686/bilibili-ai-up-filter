@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站首页 AI UP 主过滤器
 // @namespace    local.bilibili.ai-up-filter
-// @version      0.4.1
+// @version      0.4.2
 // @description  使用本地规则、AI 缓存和主动学习过滤 B 站首页推荐。
 // @author       Felix8686
 // @license      MIT
@@ -105,7 +105,20 @@
     ignoredUpSuggestions: {},
   };
 
-  const VIDEO_LINK_SELECTOR = 'a[href*="/video/"]';
+  const VIDEO_LINK_SELECTOR = [
+    'a[href*="/video/"]',
+    "a[data-bvid]",
+    "a[data-aid]",
+    "a[data-av]",
+    "a.bili-video-card__image--link",
+    "a.bili-video-card__info--tit",
+  ].join(", ");
+  const VIDEO_ID_SOURCE_SELECTOR = [
+    VIDEO_LINK_SELECTOR,
+    "[data-bvid]",
+    "[data-aid]",
+    "[data-av]",
+  ].join(", ");
   const CARD_SELECTORS = [
     ".bili-video-card",
     ".feed-card",
@@ -135,6 +148,7 @@
   if (typeof globalThis !== "undefined" && globalThis.__BAF_TEST_MODE__) {
     globalThis.__BAF_TEST_API__ = {
       extractBvid,
+      extractVideoId,
       extractUid,
       normalizeText,
       normalizeSettings,
@@ -311,8 +325,8 @@
 
   function normalizeLearningSample(entry) {
     if (!entry || typeof entry !== "object") return null;
-    const bvid = String(entry.bvid || "").trim();
-    if (!/^BV[0-9A-Za-z]+$/i.test(bvid)) return null;
+    const bvid = extractVideoId(entry.bvid);
+    if (!isSupportedVideoId(bvid)) return null;
     const uid = String(entry.uid || "").trim();
     const traits = Array.isArray(entry.traits)
       ? entry.traits
@@ -418,8 +432,8 @@
 
   function normalizeAiCacheEntry(entry) {
     if (!entry || typeof entry !== "object") return null;
-    const bvid = String(entry.bvid || "").trim();
-    if (!/^BV[0-9A-Za-z]+$/i.test(bvid) || typeof entry.match !== "boolean") return null;
+    const bvid = extractVideoId(entry.bvid);
+    if (!isSupportedVideoId(bvid) || typeof entry.match !== "boolean") return null;
     const confidence = Number(entry.confidence);
     if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return null;
     return {
@@ -870,9 +884,7 @@
   function registerVideoContextMenu() {
     document.addEventListener("contextmenu", (event) => {
       if (!isHomepage() || event.shiftKey) return;
-      const target = event.composedPath?.()[0] || event.target;
-      if (!(target instanceof Element) || ui.root.contains(target)) return;
-      const candidate = getCandidateFromTarget(target);
+      const candidate = getCandidateFromEvent(event);
       if (!candidate) return;
 
       event.preventDefault();
@@ -890,6 +902,28 @@
     window.addEventListener("blur", closeVideoContextMenu);
   }
 
+  function getCandidateFromEvent(event) {
+    if (event.target instanceof Element && ui.root.contains(event.target)) return null;
+    const path = typeof event.composedPath === "function"
+      ? event.composedPath()
+      : [event.target];
+    const targets = [
+      ...path,
+      ...(typeof document.elementsFromPoint === "function"
+        ? document.elementsFromPoint(event.clientX, event.clientY)
+        : []),
+    ];
+    const seen = new Set();
+
+    for (const target of targets) {
+      if (!(target instanceof Element) || seen.has(target) || ui.root.contains(target)) continue;
+      seen.add(target);
+      const candidate = getCandidateFromTarget(target);
+      if (candidate) return candidate;
+    }
+    return null;
+  }
+
   function getCandidateFromTarget(target) {
     let link = target.closest(VIDEO_LINK_SELECTOR);
     let card = link ? findCard(link) : null;
@@ -900,10 +934,10 @@
         if (card && card !== document.body && card !== document.documentElement) break;
         card = null;
       }
-      link = card?.querySelector(VIDEO_LINK_SELECTOR) || null;
+      link = card ? findVideoLink(card) : null;
     }
 
-    return card && link ? buildCandidate(card, link) : null;
+    return card ? buildCandidate(card, link) : null;
   }
 
   function showVideoContextMenu(candidate, clientX, clientY) {
@@ -1758,11 +1792,12 @@
   function collectCandidates() {
     const candidates = [];
     const seenCards = new Set();
-    document.querySelectorAll(VIDEO_LINK_SELECTOR).forEach((link) => {
-      if (!(link instanceof HTMLAnchorElement) || ui.root.contains(link)) return;
-      const bvid = extractBvid(link.href);
-      if (!bvid) return;
-      const card = findCard(link);
+    document.querySelectorAll(VIDEO_ID_SOURCE_SELECTOR).forEach((source) => {
+      if (!(source instanceof Element) || ui.root.contains(source)) return;
+      const link = source instanceof HTMLAnchorElement && source.matches(VIDEO_LINK_SELECTOR)
+        ? source
+        : findVideoLink(source);
+      const card = findCard(source) || (link ? findCard(link) : null);
       if (!card || seenCards.has(card)) return;
       const candidate = buildCandidate(card, link);
       if (!candidate) return;
@@ -1773,7 +1808,7 @@
   }
 
   function buildCandidate(card, link) {
-    const bvid = extractBvid(link?.href || "");
+    const bvid = getVideoId(card, link);
     if (!bvid) return null;
     const title = getVideoTitle(card, link);
     if (!title || title.length < 2) return null;
@@ -1786,6 +1821,46 @@
       upName: author.name.slice(0, 80),
       card,
     };
+  }
+
+  function findVideoLink(root) {
+    if (!(root instanceof Element)) return null;
+    if (root instanceof HTMLAnchorElement && root.matches(VIDEO_LINK_SELECTOR)) return root;
+    return root.querySelector(VIDEO_LINK_SELECTOR);
+  }
+
+  function getVideoId(card, link) {
+    const sources = [];
+    if (link instanceof Element) sources.push(link);
+    if (card instanceof Element) {
+      sources.push(card);
+      card.querySelectorAll(VIDEO_ID_SOURCE_SELECTOR).forEach((source) => sources.push(source));
+    }
+
+    for (const source of sources) {
+      const videoId = extractVideoIdFromElement(source);
+      if (videoId) return videoId;
+    }
+    return "";
+  }
+
+  function extractVideoIdFromElement(element) {
+    if (!(element instanceof Element)) return "";
+    const dataBvid = extractVideoId(element.getAttribute("data-bvid"));
+    if (dataBvid) return dataBvid;
+
+    for (const attribute of ["data-aid", "data-av"]) {
+      const rawValue = String(element.getAttribute(attribute) || "").trim();
+      if (/^\d+$/.test(rawValue)) return `av${rawValue}`;
+      const videoId = extractVideoId(rawValue);
+      if (videoId) return videoId;
+    }
+
+    for (const attribute of ["href", "data-url", "data-href", "data-video-url", "data-uri"]) {
+      const videoId = extractVideoId(element.getAttribute(attribute));
+      if (videoId) return videoId;
+    }
+    return extractVideoId(element.href || "");
   }
 
   function findCard(link) {
@@ -1842,9 +1917,32 @@
     return { uid, name: name || "未知 UP 主" };
   }
 
+  function extractVideoId(value) {
+    const rawValue = String(value || "").trim();
+    const values = [rawValue];
+    try {
+      const decoded = decodeURIComponent(rawValue);
+      if (decoded !== rawValue) values.push(decoded);
+    } catch {
+      // Keep parsing the original value when a URL contains malformed escapes.
+    }
+
+    for (const current of values) {
+      const bvidMatch = current.match(/(?:^|\/video\/|[?&#=])(BV[0-9A-Za-z]+)(?=$|[/?&#])/i);
+      if (bvidMatch) return `BV${bvidMatch[1].slice(2)}`;
+      const aidMatch = current.match(/(?:^|\/video\/|[?&#=])(av\d+)(?=$|[/?&#])/i);
+      if (aidMatch) return `av${aidMatch[1].slice(2)}`;
+    }
+    return "";
+  }
+
   function extractBvid(value) {
-    const match = String(value || "").match(/\/video\/(BV[0-9A-Za-z]+)/i);
-    return match ? match[1] : "";
+    const videoId = extractVideoId(value);
+    return videoId.startsWith("BV") ? videoId : "";
+  }
+
+  function isSupportedVideoId(value) {
+    return /^(?:BV[0-9A-Za-z]+|av\d+)$/i.test(String(value || "").trim());
   }
 
   function extractUid(value) {

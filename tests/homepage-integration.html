@@ -55,6 +55,12 @@
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/50005">白名单 UP</a>
   </div>
 
+  <div class="bili-video-card" id="special-av-card" data-aid="116921425004164">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/av116921425004164" title="旧式 AV 链接与悬停预览测试">旧式 AV 链接与悬停预览测试</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/3546929837377927">特殊卡片 UP</a>
+    <span id="special-preview-host"></span>
+  </div>
+
   <div id="baf-test-result">PENDING</div>
 
   <script>
@@ -110,6 +116,9 @@
     let firstLearningBudget = 0;
     let recoveryLearningBudget = 0;
     let deferredLearningAttempts = 0;
+
+    const specialPreviewRoot = document.querySelector("#special-preview-host").attachShadow({ mode: "open" });
+    specialPreviewRoot.innerHTML = '<span id="special-preview-overlay">悬停预览覆盖层</span>';
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
     window.GM_setValue = (key, value) => store.set(key, value);
@@ -246,6 +255,23 @@
     }, 1050);
 
     setTimeout(() => {
+      const previewOverlay = specialPreviewRoot.querySelector("#special-preview-overlay");
+      previewOverlay.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 35,
+        clientY: 35
+      }));
+      window.__specialAvContextMenu = {
+        visible: document.querySelector("#baf-context-menu").classList.contains("baf-visible"),
+        dislikeEnabled: !document.querySelector("#baf-dislike").disabled,
+        dislikeLabel: document.querySelector("#baf-dislike").textContent
+      };
+      document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    }, 1120);
+
+    setTimeout(() => {
       const manualCard = document.querySelector("#manual-dislike-card");
       manualCard.dispatchEvent(new MouseEvent("contextmenu", {
         bubbles: true,
@@ -344,6 +370,9 @@
       const adaptiveLearningRecovery = learningRequestCount === 2
         && firstLearningBudget === 550
         && recoveryLearningBudget > firstLearningBudget;
+      const specialAvContextMenuWorks = window.__specialAvContextMenu?.visible
+        && window.__specialAvContextMenu?.dislikeEnabled
+        && window.__specialAvContextMenu?.dislikeLabel.includes("不喜欢此视频");
       const pauseControlsAutomaticAi = window.__initialPause?.noAutomaticAi
         && window.__initialPause?.localRuleStillWorks
         && window.__initialPause?.pausedLabelVisible
@@ -379,6 +408,7 @@
         && cachePersisted
         && adaptiveJsonRecovery
         && adaptiveLearningRecovery
+        && specialAvContextMenuWorks
         && pauseControlsAutomaticAi;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
@@ -405,6 +435,7 @@
         cachePersisted,
         adaptiveJsonRecovery,
         adaptiveLearningRecovery,
+        specialAvContextMenuWorks,
         pauseControlsAutomaticAi,
         recoveryRequestCount,
         firstClassificationBudget,
