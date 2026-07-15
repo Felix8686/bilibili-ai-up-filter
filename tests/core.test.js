@@ -25,11 +25,13 @@ test("normalizes text and rejects unsupported providers", () => {
   assert.equal(api.normalizeText("  测试\n\t标题  "), "测试 标题");
   const settings = api.normalizeSettings({
     enabled: false,
+    monitoringPaused: true,
     description: "  擦边内容  ",
     provider: "unknown",
     models: {},
   });
   assert.equal(settings.enabled, false);
+  assert.equal(settings.monitoringPaused, true);
   assert.equal(settings.description, "擦边内容");
   assert.equal(settings.provider, "deepseek");
   assert.equal(settings.models.deepseek, "deepseek-v4-flash");

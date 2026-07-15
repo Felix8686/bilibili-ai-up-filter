@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站首页 AI UP 主过滤器
 // @namespace    local.bilibili.ai-up-filter
-// @version      0.3.2
+// @version      0.4.0
 // @description  使用本地规则、AI 缓存和主动学习过滤 B 站首页推荐。
 // @author       Felix8686
 // @license      MIT
@@ -59,6 +59,7 @@
   const DEFAULT_SETTINGS = {
     schemaVersion: SCHEMA_VERSION,
     enabled: true,
+    monitoringPaused: false,
     description: "",
     provider: "deepseek",
     models: {
@@ -182,6 +183,7 @@
   let retryNotBefore = 0;
   let panelProvider = settings.provider;
   let contextCandidate = null;
+  let monitoringGeneration = 0;
   let ui = null;
 
   addStyles();
@@ -226,6 +228,7 @@
     return {
       schemaVersion: SCHEMA_VERSION,
       enabled: source.enabled !== false,
+      monitoringPaused: source.monitoringPaused === true,
       description: typeof source.description === "string"
         ? source.description.trim().slice(0, 500)
         : "",
@@ -490,8 +493,12 @@
     return typeof value === "string" && !Number.isNaN(Date.parse(value));
   }
 
-  function saveSettingsAndSecrets() {
+  function saveSettings() {
     writeStoredObject(STORAGE_KEYS.settings, settings);
+  }
+
+  function saveSettingsAndSecrets() {
+    saveSettings();
     writeStoredObject(STORAGE_KEYS.secrets, secrets);
   }
 
@@ -526,7 +533,8 @@
         color: #222;
         font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-      #baf-toggle {
+      #baf-controls { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+      #baf-toggle, #baf-monitor-toggle {
         min-width: 94px;
         height: 32px;
         padding: 0 10px;
@@ -535,6 +543,17 @@
         background: #fff;
         color: #222;
         cursor: pointer;
+      }
+      #baf-monitor-toggle {
+        min-width: 32px;
+        width: 32px;
+        padding: 0;
+        font-size: 15px;
+      }
+      #baf-root.baf-monitor-paused #baf-toggle,
+      #baf-root.baf-monitor-paused #baf-monitor-toggle {
+        border-color: #d49b22;
+        background: #fff8df;
       }
       #baf-panel {
         display: none;
@@ -772,7 +791,10 @@
           </div>
         </details>
       </div>
-      <button id="baf-toggle" type="button">AI 过滤</button>
+      <div id="baf-controls">
+        <button id="baf-toggle" type="button">AI 过滤</button>
+        <button id="baf-monitor-toggle" type="button" aria-label="暂停自动 AI 监视" title="暂停自动 AI 监视；本地规则与缓存继续生效">⏸</button>
+      </div>
       <div id="baf-context-menu" role="menu" aria-label="视频过滤菜单">
         <button id="baf-dislike" type="button" role="menuitem">不喜欢此视频 · 隐藏并让 AI 学习</button>
         <button id="baf-block-up" type="button" role="menuitem">拉黑该 UP 主</button>
@@ -786,6 +808,7 @@
       root,
       panel: root.querySelector("#baf-panel"),
       toggle: root.querySelector("#baf-toggle"),
+      monitorToggle: root.querySelector("#baf-monitor-toggle"),
       enabled: root.querySelector("#baf-enabled"),
       description: root.querySelector("#baf-description"),
       provider: root.querySelector("#baf-provider"),
@@ -821,6 +844,7 @@
       root.classList.toggle("baf-open");
       if (root.classList.contains("baf-open")) syncPanel();
     });
+    elements.monitorToggle.addEventListener("click", handleMonitoringToggle);
     elements.close.addEventListener("click", () => root.classList.remove("baf-open"));
     elements.provider.addEventListener("change", handleProviderChange);
     elements.save.addEventListener("click", handleSave);
@@ -930,9 +954,11 @@
     setCardHidden(candidate.card, true);
     renderLearning();
     setStatus(
-      secrets.keys[settings.provider]
-        ? `已隐藏“${candidate.title}”，AI 正在学习其特征……`
-        : `已隐藏“${candidate.title}”并保存样本；填写 API Key 后会自动学习`,
+      settings.monitoringPaused
+        ? `已隐藏“${candidate.title}”并保存样本；恢复自动 AI 后再学习`
+        : secrets.keys[settings.provider]
+          ? `已隐藏“${candidate.title}”，AI 正在学习其特征……`
+          : `已隐藏“${candidate.title}”并保存样本；填写 API Key 后会自动学习`,
       "ok"
     );
     scheduleScan(0);
@@ -1045,6 +1071,25 @@
     syncPanel();
     scheduleScan(0);
     processPendingLearning();
+  }
+
+  function handleMonitoringToggle(event) {
+    event?.stopPropagation();
+    settings.monitoringPaused = !settings.monitoringPaused;
+    monitoringGeneration += 1;
+    retryNotBefore = 0;
+    sessionLearningAttempts.clear();
+    resetSessionJudgments();
+    saveSettings();
+    updateToggle();
+
+    if (settings.monitoringPaused) {
+      setStatus("自动 AI 监视已暂停；本地规则与已有缓存继续生效", "ok");
+    } else {
+      setStatus("自动 AI 监视已恢复", "ok");
+      processPendingLearning();
+    }
+    scheduleScan(0);
   }
 
   async function handleConnectionTest() {
@@ -1640,13 +1685,15 @@
       }
     });
 
-    const missingConfig = !hasFilterCriteria()
-      ? "；AI 语义判断未配置，本地规则仍可使用"
-      : !secrets.keys[settings.provider]
-        ? "；请填写 API Key"
-        : apiBlocked
-          ? "；API 已暂停，请检查配置"
-          : "";
+    const missingConfig = settings.monitoringPaused
+      ? "；自动 AI 监视已暂停，本地规则与缓存继续生效"
+      : !hasFilterCriteria()
+        ? "；AI 语义判断未配置，本地规则仍可使用"
+        : !secrets.keys[settings.provider]
+          ? "；请填写 API Key"
+          : apiBlocked
+            ? "；API 已暂停，请检查配置"
+            : "";
     const savedCalls = sessionLocalRuleHits.size + sessionCacheHits.size;
     ui.summary.textContent = `识别 ${candidates.length} 个，隐藏 ${hiddenCount} 个，待判断 ${waitingCount} 个；本页已省 ${savedCalls} 次 AI 判断（本地 ${sessionLocalRuleHits.size}，缓存 ${sessionCacheHits.size}），实际送 AI ${sessionAiSent.size} 个${missingConfig}`;
     updateToggle();
@@ -1819,6 +1866,7 @@
 
   function canEvaluate() {
     return settings.enabled
+      && !settings.monitoringPaused
       && hasFilterCriteria()
       && Boolean(secrets.keys[settings.provider])
       && !apiBlocked
@@ -1866,6 +1914,7 @@
     if (!batchRecords.length) return;
 
     requestInFlight = true;
+    const requestGeneration = monitoringGeneration;
     batchRecords.forEach((record) => sessionAiSent.add(record.candidate.fingerprint));
     setStatus(`正在判断 ${batchRecords.length} 个首页推荐……`, "");
     const config = getActiveApiConfig();
@@ -1875,6 +1924,12 @@
         batchRecords.map((record) => record.candidate),
         config
       );
+      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) {
+        batchRecords.forEach((record) => {
+          sessionJudgments.delete(record.candidate.fingerprint);
+        });
+        return;
+      }
       const results = evaluation.results;
       let matchedCount = 0;
 
@@ -1904,7 +1959,13 @@
         "ok"
       );
     } catch (error) {
-      handleBatchFailure(error, batchRecords);
+      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) {
+        batchRecords.forEach((record) => {
+          sessionJudgments.delete(record.candidate.fingerprint);
+        });
+      } else {
+        handleBatchFailure(error, batchRecords);
+      }
     } finally {
       requestInFlight = false;
       scheduleScan(0);
@@ -1970,7 +2031,7 @@
   }
 
   async function processPendingLearning() {
-    if (learningRequestInFlight) return;
+    if (learningRequestInFlight || settings.monitoringPaused) return;
     if (requestInFlight) {
       window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
       return;
@@ -1983,6 +2044,7 @@
     if (!sample) return;
 
     learningRequestInFlight = true;
+    const requestGeneration = monitoringGeneration;
     sessionLearningAttempts.add(sample.bvid);
     setStatus(`AI 正在分析不喜欢样本“${sample.title}”……`, "");
     let learned = false;
@@ -1993,6 +2055,7 @@
         model: settings.models[settings.provider],
         apiKey,
       });
+      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) return;
       const current = learning.samples[sample.bvid];
       if (!current) return;
       const now = new Date().toISOString();
@@ -2013,6 +2076,7 @@
       );
       learned = true;
     } catch (error) {
+      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) return;
       const status = Number(error.status || 0);
       if (status === 401 || status === 403) apiBlocked = true;
       setStatus(`不喜欢样本已保存；${formatApiError(error, "AI 学习")}`, "error");
@@ -2020,6 +2084,9 @@
       learningRequestInFlight = false;
       scheduleScan(0);
       if (learned) window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
+      else if (!settings.monitoringPaused && requestGeneration !== monitoringGeneration) {
+        window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
+      }
     }
   }
 
@@ -2421,6 +2488,19 @@
       + Object.keys(learning.samples).length
       + rules.titleBlacklist.length
       + rules.titleWhitelist.length;
-    ui.toggle.textContent = settings.enabled ? `AI 过滤 · ${count}` : "AI 过滤已关";
+    ui.toggle.textContent = !settings.enabled
+      ? "AI 过滤已关"
+      : settings.monitoringPaused
+        ? `AI 已暂停 · ${count}`
+        : `AI 过滤 · ${count}`;
+    ui.root.classList.toggle("baf-monitor-paused", settings.monitoringPaused);
+    ui.monitorToggle.textContent = settings.monitoringPaused ? "▶" : "⏸";
+    ui.monitorToggle.setAttribute(
+      "aria-label",
+      settings.monitoringPaused ? "恢复自动 AI 监视" : "暂停自动 AI 监视"
+    );
+    ui.monitorToggle.title = settings.monitoringPaused
+      ? "恢复自动 AI 监视"
+      : "暂停自动 AI 监视；本地规则与缓存继续生效";
   }
 })();

@@ -58,6 +58,7 @@
       ["baf.settings.v1", JSON.stringify({
         schemaVersion: 1,
         enabled: true,
+        monitoringPaused: true,
         description: "擦边内容",
         provider: "deepseek",
         models: {
@@ -188,6 +189,18 @@
   <script src="../bilibili-ai-up-filter.user.js"></script>
   <script>
     setTimeout(() => {
+      const persisted = JSON.parse(store.get("baf.settings.v1"));
+      window.__initialPause = {
+        noAutomaticAi: evaluatedTitles.length === 0 && learningRequestCount === 0,
+        localRuleStillWorks: document.querySelector("#local-black-card").classList.contains("baf-hidden"),
+        pausedLabelVisible: document.querySelector("#baf-toggle").textContent.includes("已暂停"),
+        resumeIconVisible: document.querySelector("#baf-monitor-toggle").textContent === "▶",
+        persisted: persisted.monitoringPaused === true
+      };
+      document.querySelector("#baf-monitor-toggle").click();
+    }, 100);
+
+    setTimeout(() => {
       const savedBefore = JSON.parse(store.get("baf.blacklist.v1"));
       window.__bafPreBlock = {
         noAutoBlacklist: !savedBefore.entries["10001"],
@@ -196,6 +209,10 @@
       };
       document.querySelector("#baf-up-suggestions button")?.click();
     }, 750);
+
+    setTimeout(() => {
+      document.querySelector("#baf-monitor-toggle").click();
+    }, 1050);
 
     setTimeout(() => {
       const manualCard = document.querySelector("#manual-dislike-card");
@@ -207,6 +224,16 @@
       }));
       document.querySelector("#baf-dislike").click();
     }, 1200);
+
+    setTimeout(() => {
+      const savedLearning = JSON.parse(store.get("baf.learning.v1"));
+      window.__pausedLearning = {
+        noLearningRequest: learningRequestCount === 0,
+        sampleSaved: Boolean(savedLearning.samples.BV1Manual005),
+        resumeIconVisible: document.querySelector("#baf-monitor-toggle").textContent === "▶"
+      };
+      document.querySelector("#baf-monitor-toggle").click();
+    }, 1380);
 
     setTimeout(() => {
       window.__cacheSafeCountBefore = evaluatedTitles
@@ -267,6 +294,15 @@
       const adaptiveLearningRecovery = learningRequestCount === 2
         && firstLearningBudget === 550
         && recoveryLearningBudget > firstLearningBudget;
+      const pauseControlsAutomaticAi = window.__initialPause?.noAutomaticAi
+        && window.__initialPause?.localRuleStillWorks
+        && window.__initialPause?.pausedLabelVisible
+        && window.__initialPause?.resumeIconVisible
+        && window.__initialPause?.persisted
+        && window.__pausedLearning?.noLearningRequest
+        && window.__pausedLearning?.sampleSaved
+        && window.__pausedLearning?.resumeIconVisible
+        && JSON.parse(store.get("baf.settings.v1")).monitoringPaused === false;
       const passed = matchedHidden
         && sameUpHidden
         && safeVisible
@@ -287,7 +323,8 @@
         && cacheReused
         && cachePersisted
         && adaptiveJsonRecovery
-        && adaptiveLearningRecovery;
+        && adaptiveLearningRecovery
+        && pauseControlsAutomaticAi;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
       result.dataset.details = JSON.stringify({
@@ -312,6 +349,7 @@
         cachePersisted,
         adaptiveJsonRecovery,
         adaptiveLearningRecovery,
+        pauseControlsAutomaticAi,
         recoveryRequestCount,
         firstClassificationBudget,
         learningRequestCount,
