@@ -35,6 +35,11 @@
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/40004">手动样本 UP</a>
   </div>
 
+  <div class="bili-video-card" id="pending-manual-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Pending009" title="暂停期间待补学视频">暂停期间待补学视频</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/90009">待补学 UP</a>
+  </div>
+
   <div class="bili-video-card" id="local-black-card">
     <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Local006" title="本地屏蔽规则测试">本地屏蔽规则测试</a>
     <a class="bili-video-card__info--author" href="https://space.bilibili.com/60006">本地规则 UP</a>
@@ -104,6 +109,7 @@
     let learningRequestCount = 0;
     let firstLearningBudget = 0;
     let recoveryLearningBudget = 0;
+    let deferredLearningAttempts = 0;
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
     window.GM_setValue = (key, value) => store.set(key, value);
@@ -112,6 +118,30 @@
       const request = JSON.parse(options.data);
       const userPayload = JSON.parse(request.messages[1].content);
       if (userPayload.dislikedVideo) {
+        if (userPayload.dislikedVideo.title.includes("待补学")) {
+          deferredLearningAttempts += 1;
+          if (deferredLearningAttempts === 1) {
+            setTimeout(() => options.onload({
+              status: 429,
+              responseText: JSON.stringify({ error: { message: "deferred learning test" } })
+            }), 20);
+            return;
+          }
+          setTimeout(() => options.onload({
+            status: 200,
+            responseText: JSON.stringify({
+              choices: [{
+                finish_reason: "stop",
+                message: { content: JSON.stringify({
+                  analysis: "恢复后补充分析暂停期间保存的样本",
+                  traits: ["待补学样本"],
+                  learnedProfile: "过滤与手动不喜欢样本及待补学样本特征相似的视频"
+                }) }
+              }]
+            })
+          }), 20);
+          return;
+        }
         learningRequestCount += 1;
         if (learningRequestCount === 1) {
           firstLearningBudget = request.max_tokens;
@@ -211,6 +241,7 @@
     }, 750);
 
     setTimeout(() => {
+      window.__classificationAtManualPause = evaluatedTitles.length;
       document.querySelector("#baf-monitor-toggle").click();
     }, 1050);
 
@@ -226,11 +257,28 @@
     }, 1200);
 
     setTimeout(() => {
+      const pendingCard = document.querySelector("#pending-manual-card");
+      pendingCard.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 50,
+        clientY: 50
+      }));
+      document.querySelector("#baf-dislike").click();
+    }, 1280);
+
+    setTimeout(() => {
       const savedLearning = JSON.parse(store.get("baf.learning.v1"));
       window.__pausedLearning = {
-        noLearningRequest: learningRequestCount === 0,
+        manualLearningCompleted: learningRequestCount === 2
+          && Boolean(savedLearning.samples.BV1Manual005?.analyzedAt),
+        homepageAiStillPaused: evaluatedTitles.length === window.__classificationAtManualPause,
         sampleSaved: Boolean(savedLearning.samples.BV1Manual005),
-        resumeIconVisible: document.querySelector("#baf-monitor-toggle").textContent === "▶"
+        pendingSampleSaved: Boolean(savedLearning.samples.BV1Pending009),
+        pendingSampleWaiting: !savedLearning.samples.BV1Pending009?.analyzedAt
+          && deferredLearningAttempts === 1,
+        resumeIconVisible: document.querySelector("#baf-monitor-toggle").textContent === "▶",
+        persistedPaused: JSON.parse(store.get("baf.settings.v1")).monitoringPaused === true
       };
       document.querySelector("#baf-monitor-toggle").click();
     }, 1380);
@@ -274,6 +322,8 @@
       const savedLearning = JSON.parse(store.get("baf.learning.v1"));
       const manualSampleSaved = Boolean(savedLearning.samples.BV1Manual005);
       const manualSampleAnalyzed = Boolean(savedLearning.samples.BV1Manual005?.analyzedAt);
+      const pendingSampleAnalyzed = Boolean(savedLearning.samples.BV1Pending009?.analyzedAt)
+        && deferredLearningAttempts === 2;
       const learnedProfileSaved = savedLearning.learnedProfile.includes("手动不喜欢样本");
       const localBlackHidden = document.querySelector("#local-black-card").classList.contains("baf-hidden");
       const titleWhiteVisible = !document.querySelector("#title-white-card").classList.contains("baf-hidden");
@@ -299,9 +349,13 @@
         && window.__initialPause?.pausedLabelVisible
         && window.__initialPause?.resumeIconVisible
         && window.__initialPause?.persisted
-        && window.__pausedLearning?.noLearningRequest
+        && window.__pausedLearning?.manualLearningCompleted
+        && window.__pausedLearning?.homepageAiStillPaused
         && window.__pausedLearning?.sampleSaved
+        && window.__pausedLearning?.pendingSampleSaved
+        && window.__pausedLearning?.pendingSampleWaiting
         && window.__pausedLearning?.resumeIconVisible
+        && window.__pausedLearning?.persistedPaused
         && JSON.parse(store.get("baf.settings.v1")).monitoringPaused === false;
       const passed = matchedHidden
         && sameUpHidden
@@ -315,6 +369,7 @@
         && manualUpNotBlacklisted
         && manualSampleSaved
         && manualSampleAnalyzed
+        && pendingSampleAnalyzed
         && learnedProfileSaved
         && localBlackHidden
         && titleWhiteVisible
@@ -340,6 +395,7 @@
         manualUpNotBlacklisted,
         manualSampleSaved,
         manualSampleAnalyzed,
+        pendingSampleAnalyzed,
         learnedProfileSaved,
         localBlackHidden,
         titleWhiteVisible,
@@ -355,6 +411,7 @@
         learningRequestCount,
         firstLearningBudget,
         recoveryLearningBudget,
+        deferredLearningAttempts,
         safeEvaluationCount
       });
     }, 3800);

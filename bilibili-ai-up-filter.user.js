@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站首页 AI UP 主过滤器
 // @namespace    local.bilibili.ai-up-filter
-// @version      0.4.0
+// @version      0.4.1
 // @description  使用本地规则、AI 缓存和主动学习过滤 B 站首页推荐。
 // @author       Felix8686
 // @license      MIT
@@ -954,15 +954,20 @@
     setCardHidden(candidate.card, true);
     renderLearning();
     setStatus(
-      settings.monitoringPaused
-        ? `已隐藏“${candidate.title}”并保存样本；恢复自动 AI 后再学习`
-        : secrets.keys[settings.provider]
-          ? `已隐藏“${candidate.title}”，AI 正在学习其特征……`
+      secrets.keys[settings.provider]
+        ? settings.monitoringPaused
+          ? `已隐藏“${candidate.title}”；AI 正在学习此手动样本，首页自动监视仍暂停`
+          : `已隐藏“${candidate.title}”，AI 正在学习其特征……`
+        : settings.monitoringPaused
+          ? `已隐藏“${candidate.title}”并保存样本；填写 API Key 并恢复自动 AI 后再学习`
           : `已隐藏“${candidate.title}”并保存样本；填写 API Key 后会自动学习`,
       "ok"
     );
     scheduleScan(0);
-    processPendingLearning();
+    processPendingLearning({
+      allowWhilePaused: true,
+      targetBvid: candidate.bvid,
+    });
   }
 
   function handleManualBlockUp() {
@@ -2030,17 +2035,31 @@
       }));
   }
 
-  async function processPendingLearning() {
-    if (learningRequestInFlight || settings.monitoringPaused) return;
+  async function processPendingLearning(options = {}) {
+    const allowWhilePaused = options.allowWhilePaused === true;
+    const targetBvid = typeof options.targetBvid === "string"
+      ? options.targetBvid
+      : "";
+    const explicitManualLearning = allowWhilePaused && Boolean(targetBvid);
+    if (learningRequestInFlight) {
+      if (explicitManualLearning) {
+        window.setTimeout(() => processPendingLearning(options), BATCH_DELAY_MS);
+      }
+      return;
+    }
+    if (settings.monitoringPaused && !allowWhilePaused) return;
     if (requestInFlight) {
-      window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
+      window.setTimeout(() => processPendingLearning(options), BATCH_DELAY_MS);
       return;
     }
     const apiKey = secrets.keys[settings.provider];
     if (!apiKey) return;
-    const sample = Object.values(learning.samples)
-      .sort((left, right) => left.addedAt.localeCompare(right.addedAt))
-      .find((item) => !item.analyzedAt && !sessionLearningAttempts.has(item.bvid));
+    const sample = targetBvid
+      ? learning.samples[targetBvid]
+      : Object.values(learning.samples)
+        .sort((left, right) => left.addedAt.localeCompare(right.addedAt))
+        .find((item) => !item.analyzedAt && !sessionLearningAttempts.has(item.bvid));
+    if (sample?.analyzedAt || sessionLearningAttempts.has(sample?.bvid)) return;
     if (!sample) return;
 
     learningRequestInFlight = true;
@@ -2055,7 +2074,8 @@
         model: settings.models[settings.provider],
         apiKey,
       });
-      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) return;
+      if (!explicitManualLearning
+        && (settings.monitoringPaused || requestGeneration !== monitoringGeneration)) return;
       const current = learning.samples[sample.bvid];
       if (!current) return;
       const now = new Date().toISOString();
@@ -2076,15 +2096,19 @@
       );
       learned = true;
     } catch (error) {
-      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) return;
+      if (!explicitManualLearning
+        && (settings.monitoringPaused || requestGeneration !== monitoringGeneration)) return;
       const status = Number(error.status || 0);
       if (status === 401 || status === 403) apiBlocked = true;
       setStatus(`不喜欢样本已保存；${formatApiError(error, "AI 学习")}`, "error");
     } finally {
       learningRequestInFlight = false;
       scheduleScan(0);
-      if (learned) window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
-      else if (!settings.monitoringPaused && requestGeneration !== monitoringGeneration) {
+      if (learned && !settings.monitoringPaused) {
+        window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
+      } else if (!explicitManualLearning
+        && !settings.monitoringPaused
+        && requestGeneration !== monitoringGeneration) {
         window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
       }
     }
