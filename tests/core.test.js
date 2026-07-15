@@ -54,6 +54,9 @@ test("uses a low initial classification budget and a bounded recovery budget", (
   assert.equal(api.getClassificationTokenBudget(1, true), 1200);
   assert.equal(api.getClassificationTokenBudget(10, true), 2040);
   assert.equal(api.getClassificationTokenBudget(100, true), 2400);
+  assert.equal(api.getStructuredRecoveryTokenBudget(960), 1200);
+  assert.equal(api.getStructuredRecoveryTokenBudget(1650), 1650);
+  assert.equal(api.getStructuredRecoveryTokenBudget(9999), 2400);
 });
 
 test("diagnoses empty and truncated structured model responses", () => {
@@ -97,6 +100,15 @@ test("parses and normalizes AI learning results", () => {
     ["夸张猎奇", "制造焦虑"]
   );
   assert.match(result.learnedProfile, /夸张猎奇/);
+});
+
+test("accepts conservative aliases in AI learning results", () => {
+  const result = api.parseLearningResult(
+    '{"summary":"规避焦虑营销","features":["焦虑营销","卖课"],"learned_profile":"不喜欢制造焦虑并推销课程的视频"}'
+  );
+  assert.equal(result.analysis, "规避焦虑营销");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.traits)), ["焦虑营销", "卖课"]);
+  assert.match(result.learnedProfile, /推销课程/);
 });
 
 test("rejects incomplete AI learning results", () => {
@@ -152,6 +164,14 @@ test("parses AI candidate rules without enabling them", () => {
     '{"blacklist":["卖课","/月入|日赚/"],"whitelist":["官方纪录片"]}'
   );
   assert.deepEqual(JSON.parse(JSON.stringify(result.blacklist)), ["卖课", "/月入|日赚/"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.whitelist)), ["官方纪录片"]);
+});
+
+test("accepts conservative aliases in AI candidate rules", () => {
+  const result = api.parseRuleSuggestions(
+    '{"titleBlacklist":["卖课"],"titleWhitelist":["官方纪录片"]}'
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(result.blacklist)), ["卖课"]);
   assert.deepEqual(JSON.parse(JSON.stringify(result.whitelist)), ["官方纪录片"]);
 });
 

@@ -8,6 +8,19 @@
 <body>
   <h1>版本记录</h1>
 
+  <h2>v0.3.2（2026-07-15）</h2>
+  <p>修复主动学习结果格式错误，并把结构化 JSON 补救统一到全部 AI 功能。</p>
+  <ul>
+    <li>首页视频分类、右键不喜欢主动学习和 AI 候选规则生成现在共用一次自适应 JSON 补救流程。</li>
+    <li>主动学习首次输出为空、截断或缺少字段时，会把 550 token 临时提高到最多 1650 token 重试一次。</li>
+    <li>候选规则首次格式异常时，会把 320 token 临时提高到 1200 token 重试一次。</li>
+    <li>学习结果兼容 <code>summary</code>、<code>features</code>、<code>learned_profile</code> 和 <code>profile</code> 等安全字段别名。</li>
+    <li>候选规则兼容 <code>titleBlacklist</code>、<code>titleWhitelist</code>、<code>blacklistRules</code> 和 <code>whitelistRules</code>。</li>
+    <li>学习和候选规则状态提示会明确标出首次 JSON 异常是否已自动修复。</li>
+    <li>作者署名从 <code>local</code> 更新为 <code>Felix8686</code>。</li>
+    <li>核心自动化测试增加到 20 项；首页集成测试新增主动学习空输出、一次扩容及字段别名回归场景。</li>
+  </ul>
+
   <h2>v0.3.1（2026-07-14）</h2>
   <p>修复结构化 JSON 输出偶发为空或被截断的问题，同时避免无效重试造成额外 token 消耗。</p>
   <ul>

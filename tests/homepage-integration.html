@@ -100,6 +100,9 @@
     let truncatedResponseSent = false;
     let firstClassificationBudget = 0;
     let recoveryRequestCount = 0;
+    let learningRequestCount = 0;
+    let firstLearningBudget = 0;
+    let recoveryLearningBudget = 0;
 
     window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
     window.GM_setValue = (key, value) => store.set(key, value);
@@ -108,14 +111,33 @@
       const request = JSON.parse(options.data);
       const userPayload = JSON.parse(request.messages[1].content);
       if (userPayload.dislikedVideo) {
+        learningRequestCount += 1;
+        if (learningRequestCount === 1) {
+          firstLearningBudget = request.max_tokens;
+          setTimeout(() => options.onload({
+            status: 200,
+            responseText: JSON.stringify({
+              choices: [{
+                finish_reason: "length",
+                message: { content: "" }
+              }],
+              usage: { completion_tokens: request.max_tokens }
+            })
+          }), 20);
+          return;
+        }
+        recoveryLearningBudget = request.max_tokens;
         setTimeout(() => options.onload({
           status: 200,
           responseText: JSON.stringify({
-            choices: [{ message: { content: JSON.stringify({
-              analysis: "用户不喜欢该类主动标记的视频",
-              traits: ["主动标记样本"],
-              learnedProfile: "过滤与手动不喜欢样本特征相似的视频"
-            }) } }]
+            choices: [{
+              finish_reason: "stop",
+              message: { content: JSON.stringify({
+                summary: "用户不喜欢该类主动标记的视频",
+                features: ["主动标记样本"],
+                learned_profile: "过滤与手动不喜欢样本特征相似的视频"
+              }) }
+            }]
           })
         }), 20);
         return;
@@ -242,6 +264,9 @@
       const adaptiveJsonRecovery = truncatedResponseSent
         && recoveryRequestCount === 1
         && firstClassificationBudget < 1200;
+      const adaptiveLearningRecovery = learningRequestCount === 2
+        && firstLearningBudget === 550
+        && recoveryLearningBudget > firstLearningBudget;
       const passed = matchedHidden
         && sameUpHidden
         && safeVisible
@@ -261,7 +286,8 @@
         && localRulesSkippedAi
         && cacheReused
         && cachePersisted
-        && adaptiveJsonRecovery;
+        && adaptiveJsonRecovery
+        && adaptiveLearningRecovery;
       const result = document.querySelector("#baf-test-result");
       result.textContent = passed ? "PASS" : "FAIL";
       result.dataset.details = JSON.stringify({
@@ -285,8 +311,12 @@
         cacheReused,
         cachePersisted,
         adaptiveJsonRecovery,
+        adaptiveLearningRecovery,
         recoveryRequestCount,
         firstClassificationBudget,
+        learningRequestCount,
+        firstLearningBudget,
+        recoveryLearningBudget,
         safeEvaluationCount
       });
     }, 3800);

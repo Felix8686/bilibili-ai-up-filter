@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         B站首页 AI UP 主过滤器
 // @namespace    local.bilibili.ai-up-filter
-// @version      0.3.1
+// @version      0.3.2
 // @description  使用本地规则、AI 缓存和主动学习过滤 B 站首页推荐。
-// @author       local
+// @author       Felix8686
 // @license      MIT
 // @match        https://www.bilibili.com/*
 // @run-at       document-idle
@@ -146,6 +146,7 @@
       parseLearningResult,
       parseRuleSuggestions,
       getClassificationTokenBudget,
+      getStructuredRecoveryTokenBudget,
       getModelResponseInfo,
       createStructuredOutputError,
       isRetryableBatchError,
@@ -1111,9 +1112,14 @@
         .filter((item) => !rules.titleWhitelist.includes(item));
       saveRules();
       renderRuleSuggestions();
-      setStatus("候选规则已生成；只有点击“采用”后才会生效", "ok");
+      setStatus(
+        result.recovered
+          ? "候选规则已生成；首次 JSON 异常已自动修复，点击“采用”后才会生效"
+          : "候选规则已生成；只有点击“采用”后才会生效",
+        "ok"
+      );
     } catch (error) {
-      setStatus(`候选规则生成失败：${formatApiError(error)}`, "error");
+      setStatus(formatApiError(error, "候选规则生成"), "error");
     } finally {
       ruleSuggestionInFlight = false;
       ui.suggestRules.disabled = false;
@@ -1145,17 +1151,17 @@
       temperature: 0,
       max_tokens: 320,
     };
-    let response;
-    try {
-      response = await requestChatCompletion(provider.endpoint, config.apiKey, {
-        ...baseBody,
-        response_format: { type: "json_object" },
-      });
-    } catch (error) {
-      if (Number(error.status) !== 400) throw error;
-      response = await requestChatCompletion(provider.endpoint, config.apiKey, baseBody);
-    }
-    return parseRuleSuggestions(response?.choices?.[0]?.message?.content);
+    const structured = await requestStructuredJson(
+      provider,
+      config.apiKey,
+      baseBody,
+      parseRuleSuggestions,
+      getStructuredRecoveryTokenBudget(baseBody.max_tokens * 3)
+    );
+    return {
+      ...structured.value,
+      recovered: structured.recovered,
+    };
   }
 
   function parseRuleSuggestions(content) {
@@ -1178,14 +1184,20 @@
     } catch {
       parsed = null;
     }
-    if (!parsed || !Array.isArray(parsed.blacklist) || !Array.isArray(parsed.whitelist)) {
+    const blacklist = parsed?.blacklist
+      ?? parsed?.titleBlacklist
+      ?? parsed?.blacklistRules;
+    const whitelist = parsed?.whitelist
+      ?? parsed?.titleWhitelist
+      ?? parsed?.whitelistRules;
+    if (!parsed || !Array.isArray(blacklist) || !Array.isArray(whitelist)) {
       const error = new Error("模型返回的候选规则格式不正确");
       error.parseFailure = true;
       throw error;
     }
     return {
-      blacklist: normalizeRuleList(parsed.blacklist).slice(0, 8),
-      whitelist: normalizeRuleList(parsed.whitelist).slice(0, 4),
+      blacklist: normalizeRuleList(blacklist).slice(0, 8),
+      whitelist: normalizeRuleList(whitelist).slice(0, 4),
     };
   }
 
@@ -1993,12 +2005,17 @@
       renderLearning();
       apiBlocked = false;
       resetSessionJudgments();
-      setStatus(`AI 已学习“${sample.title}”的特征，并更新偏好画像`, "ok");
+      setStatus(
+        result.recovered
+          ? `AI 已学习“${sample.title}”并更新偏好画像；首次 JSON 异常已自动修复`
+          : `AI 已学习“${sample.title}”的特征，并更新偏好画像`,
+        "ok"
+      );
       learned = true;
     } catch (error) {
       const status = Number(error.status || 0);
       if (status === 401 || status === 403) apiBlocked = true;
-      setStatus(`不喜欢样本已保存；${formatApiError(error)}`, "error");
+      setStatus(`不喜欢样本已保存；${formatApiError(error, "AI 学习")}`, "error");
     } finally {
       learningRequestInFlight = false;
       scheduleScan(0);
@@ -2038,17 +2055,17 @@
       max_tokens: 550,
     };
 
-    let response;
-    try {
-      response = await requestChatCompletion(provider.endpoint, config.apiKey, {
-        ...baseBody,
-        response_format: { type: "json_object" },
-      });
-    } catch (error) {
-      if (Number(error.status) !== 400) throw error;
-      response = await requestChatCompletion(provider.endpoint, config.apiKey, baseBody);
-    }
-    return parseLearningResult(response?.choices?.[0]?.message?.content);
+    const structured = await requestStructuredJson(
+      provider,
+      config.apiKey,
+      baseBody,
+      parseLearningResult,
+      getStructuredRecoveryTokenBudget(baseBody.max_tokens * 3)
+    );
+    return {
+      ...structured.value,
+      recovered: structured.recovered,
+    };
   }
 
   function parseLearningResult(content) {
@@ -2071,10 +2088,19 @@
     } catch {
       parsed = null;
     }
-    const analysis = normalizeText(parsed?.analysis || "").slice(0, 240);
-    const learnedProfile = normalizeText(parsed?.learnedProfile || "").slice(0, 600);
-    const traits = Array.isArray(parsed?.traits)
+    const rawAnalysis = [parsed?.analysis, parsed?.summary]
+      .find((value) => typeof value === "string") || "";
+    const rawProfile = [parsed?.learnedProfile, parsed?.learned_profile, parsed?.profile]
+      .find((value) => typeof value === "string") || "";
+    const rawTraits = Array.isArray(parsed?.traits)
       ? parsed.traits
+      : Array.isArray(parsed?.features)
+        ? parsed.features
+        : [];
+    const analysis = normalizeText(rawAnalysis).slice(0, 240);
+    const learnedProfile = normalizeText(rawProfile).slice(0, 600);
+    const traits = rawTraits.length
+      ? rawTraits
         .map((trait) => normalizeText(String(trait)).slice(0, 50))
         .filter(Boolean)
         .slice(0, 8)
@@ -2098,6 +2124,14 @@
     return Math.min(
       CLASSIFICATION_RECOVERY_MAX_TOKENS,
       Math.max(CLASSIFICATION_RECOVERY_MIN_TOKENS, 240 + count * 180)
+    );
+  }
+
+  function getStructuredRecoveryTokenBudget(requestedTokens) {
+    const tokens = Math.floor(Number(requestedTokens) || 0);
+    return Math.min(
+      CLASSIFICATION_RECOVERY_MAX_TOKENS,
+      Math.max(CLASSIFICATION_RECOVERY_MIN_TOKENS, tokens)
     );
   }
 
@@ -2138,7 +2172,7 @@
     return error;
   }
 
-  async function requestClassificationResponse(provider, apiKey, body) {
+  async function requestJsonResponse(provider, apiKey, body) {
     try {
       return await requestChatCompletion(provider.endpoint, apiKey, {
         ...body,
@@ -2147,6 +2181,46 @@
     } catch (error) {
       if (Number(error.status) !== 400) throw error;
       return requestChatCompletion(provider.endpoint, apiKey, body);
+    }
+  }
+
+  async function requestStructuredJson(
+    provider,
+    apiKey,
+    baseBody,
+    parseContent,
+    recoveryTokens
+  ) {
+    const response = await requestJsonResponse(provider, apiKey, baseBody);
+    try {
+      return {
+        value: parseContent(getModelResponseInfo(response).content),
+        recovered: false,
+      };
+    } catch (error) {
+      if (!error.parseFailure) throw error;
+    }
+
+    const recoveryBody = {
+      ...baseBody,
+      messages: baseBody.messages.map((message, index) => index === 0
+        ? {
+          ...message,
+          content: `${message.content}\n格式修复重试：立即输出一个完整 JSON 对象，不要输出空白、前言或推理过程。`,
+        }
+        : message),
+      max_tokens: getStructuredRecoveryTokenBudget(recoveryTokens),
+    };
+    let recoveryResponse;
+    try {
+      recoveryResponse = await requestJsonResponse(provider, apiKey, recoveryBody);
+      return {
+        value: parseContent(getModelResponseInfo(recoveryResponse).content),
+        recovered: true,
+      };
+    } catch (recoveryError) {
+      if (!recoveryError.parseFailure) throw recoveryError;
+      throw createStructuredOutputError(recoveryError, recoveryResponse);
     }
   }
 
@@ -2196,46 +2270,17 @@
     };
 
     const expectedIds = [...idToFingerprint.keys()];
-    let parsed;
-    let recovered = false;
-    const response = await requestClassificationResponse(provider, config.apiKey, baseBody);
-    try {
-      parsed = parseModelResults(
-        getModelResponseInfo(response).content,
-        expectedIds
-      );
-    } catch (error) {
-      if (!error.parseFailure) throw error;
-      const recoveryBody = {
-        ...baseBody,
-        messages: baseBody.messages.map((message, index) => index === 0
-          ? {
-            ...message,
-            content: `${message.content}\n格式修复重试：立即输出一个完整 JSON 对象，不要输出空白、前言或推理过程。`,
-          }
-          : message),
-        max_tokens: getClassificationTokenBudget(items.length, true),
-      };
-      let recoveryResponse;
-      try {
-        recoveryResponse = await requestClassificationResponse(
-          provider,
-          config.apiKey,
-          recoveryBody
-        );
-        parsed = parseModelResults(
-          getModelResponseInfo(recoveryResponse).content,
-          expectedIds
-        );
-        recovered = true;
-      } catch (recoveryError) {
-        if (!recoveryError.parseFailure) throw recoveryError;
-        throw createStructuredOutputError(recoveryError, recoveryResponse);
-      }
-    }
+    const structured = await requestStructuredJson(
+      provider,
+      config.apiKey,
+      baseBody,
+      (content) => parseModelResults(content, expectedIds),
+      getClassificationTokenBudget(items.length, true)
+    );
+    const parsed = structured.value;
 
     return {
-      recovered,
+      recovered: structured.recovered,
       results: parsed.map((result) => ({
         fingerprint: idToFingerprint.get(result.id),
         match: result.match,
@@ -2347,12 +2392,12 @@
     return expectedIds.map((id) => byId.get(id));
   }
 
-  function formatApiError(error) {
+  function formatApiError(error, operation = "AI 判断") {
     const status = Number(error.status || 0);
     if (status === 401 || status === 403) return "API 鉴权失败，请检查 Key；自动判断已暂停";
     if (status === 429) return "API 请求过于频繁或额度不足，稍后重试";
     if (status >= 500) return `API 服务暂时异常（HTTP ${status}）`;
-    return `AI 判断失败：${error.message || "未知错误"}`;
+    return `${operation}失败：${error.message || "未知错误"}`;
   }
 
   function resetSessionJudgments() {
