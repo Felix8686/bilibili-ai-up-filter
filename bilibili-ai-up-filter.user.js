@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站首页 AI UP 主过滤器
 // @namespace    local.bilibili.ai-up-filter
-// @version      0.4.2
+// @version      0.5.0
 // @description  使用本地规则、AI 缓存和主动学习过滤 B 站首页推荐。
 // @author       Felix8686
 // @license      MIT
@@ -14,6 +14,15 @@
 // @grant        GM_registerMenuCommand
 // @connect      api.deepseek.com
 // @connect      aihubmix.com
+// @connect      api.openai.com
+// @connect      generativelanguage.googleapis.com
+// @connect      api.anthropic.com
+// @connect      ark.cn-beijing.volces.com
+// @connect      dashscope.aliyuncs.com
+// @connect      open.bigmodel.cn
+// @connect      api.moonshot.cn
+// @connect      api.hunyuan.cloud.tencent.com
+// @connect      qianfan.baidubce.com
 // ==/UserScript==
 
 (function () {
@@ -45,14 +54,114 @@
 
   const PROVIDERS = {
     deepseek: {
+      id: "deepseek",
       label: "DeepSeek",
       endpoint: "https://api.deepseek.com/chat/completions",
       defaultModel: "deepseek-v4-flash",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: true,
+      hint: "使用 DeepSeek 开放平台 API Key。",
     },
     aihubmix: {
+      id: "aihubmix",
       label: "AiHubMix",
       endpoint: "https://aihubmix.com/v1/chat/completions",
       defaultModel: "gpt-4o-mini",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: true,
+      hint: "使用 AiHubMix API Key。",
+    },
+    openai: {
+      id: "openai",
+      label: "OpenAI",
+      endpoint: "https://api.openai.com/v1/chat/completions",
+      defaultModel: "gpt-5.6-luna",
+      apiStyle: "openai",
+      tokenField: "max_completion_tokens",
+      supportsJsonMode: true,
+      hint: "使用 OpenAI Platform API Key；默认关闭额外推理以节省 token。",
+    },
+    gemini: {
+      id: "gemini",
+      label: "Google Gemini",
+      endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      defaultModel: "gemini-3.5-flash",
+      apiStyle: "openai",
+      tokenField: "max_completion_tokens",
+      supportsJsonMode: true,
+      hint: "使用 Google AI Studio 的 Gemini API Key。",
+    },
+    anthropic: {
+      id: "anthropic",
+      label: "Anthropic Claude",
+      endpoint: "https://api.anthropic.com/v1/messages",
+      defaultModel: "claude-haiku-4-5",
+      apiStyle: "anthropic",
+      tokenField: "max_tokens",
+      supportsJsonMode: false,
+      hint: "使用 Anthropic Console API Key；脚本会自动转换为 Claude Messages 格式。",
+    },
+    doubao: {
+      id: "doubao",
+      label: "豆包（火山方舟）",
+      endpoint: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      defaultModel: "doubao-seed-2-0-lite-260215",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: true,
+      hint: "使用火山方舟 API Key；豆包和火山方舟共用这一项。",
+    },
+    qwen: {
+      id: "qwen",
+      label: "阿里云百炼（通义千问）",
+      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      defaultModel: "qwen3.6-flash",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: true,
+      hint: "使用阿里云百炼中国内地 API Key；默认关闭深度思考以节省 token。",
+    },
+    zhipu: {
+      id: "zhipu",
+      label: "智谱 GLM",
+      endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      defaultModel: "glm-4.7-flash",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: false,
+      hint: "使用智谱开放平台 API Key；默认模型为免费 Flash 版本。",
+    },
+    kimi: {
+      id: "kimi",
+      label: "Kimi（月之暗面）",
+      endpoint: "https://api.moonshot.cn/v1/chat/completions",
+      defaultModel: "kimi-k2.6",
+      apiStyle: "openai",
+      tokenField: "max_completion_tokens",
+      supportsJsonMode: true,
+      hint: "使用 Kimi 开放平台 API Key；默认关闭 K2.6 深度思考。",
+    },
+    hunyuan: {
+      id: "hunyuan",
+      label: "腾讯混元",
+      endpoint: "https://api.hunyuan.cloud.tencent.com/v1/chat/completions",
+      defaultModel: "hunyuan-turbos-latest",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: false,
+      hint: "使用腾讯混元控制台 API Key；联网增强保持关闭。",
+    },
+    qianfan: {
+      id: "qianfan",
+      label: "百度千帆（ERNIE）",
+      endpoint: "https://qianfan.baidubce.com/v2/chat/completions",
+      defaultModel: "ernie-5.0",
+      apiStyle: "openai",
+      tokenField: "max_tokens",
+      supportsJsonMode: false,
+      hint: "使用百度千帆 V2 API Key（Bearer Token 形式）。",
     },
   };
 
@@ -62,18 +171,12 @@
     monitoringPaused: false,
     description: "",
     provider: "deepseek",
-    models: {
-      deepseek: PROVIDERS.deepseek.defaultModel,
-      aihubmix: PROVIDERS.aihubmix.defaultModel,
-    },
+    models: createProviderDefaults("defaultModel"),
   };
 
   const DEFAULT_SECRETS = {
     schemaVersion: SCHEMA_VERSION,
-    keys: {
-      deepseek: "",
-      aihubmix: "",
-    },
+    keys: createProviderDefaults(""),
   };
 
   const DEFAULT_BLACKLIST = {
@@ -152,6 +255,7 @@
       extractUid,
       normalizeText,
       normalizeSettings,
+      normalizeSecrets,
       normalizeLearning,
       normalizeRules,
       normalizeAiCache,
@@ -163,6 +267,9 @@
       getClassificationTokenBudget,
       getStructuredRecoveryTokenBudget,
       getModelResponseInfo,
+      getProviderCatalog,
+      buildProviderRequest,
+      normalizeProviderResponse,
       createStructuredOutputError,
       isRetryableBatchError,
       validateBackup,
@@ -230,6 +337,28 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function createProviderDefaults(field) {
+    return Object.fromEntries(Object.entries(PROVIDERS).map(([providerId, provider]) => [
+      providerId,
+      field === "" ? "" : provider[field],
+    ]));
+  }
+
+  function getProviderCatalog() {
+    return Object.fromEntries(Object.entries(PROVIDERS).map(([providerId, provider]) => [
+      providerId,
+      {
+        id: provider.id,
+        label: provider.label,
+        endpoint: provider.endpoint,
+        defaultModel: provider.defaultModel,
+        apiStyle: provider.apiStyle,
+        tokenField: provider.tokenField,
+        supportsJsonMode: provider.supportsJsonMode,
+      },
+    ]));
+  }
+
   function normalizeSettings(value) {
     const source = value && typeof value === "object" ? value : {};
     const provider = Object.hasOwn(PROVIDERS, source.provider)
@@ -239,6 +368,14 @@
       ? source.models
       : {};
 
+    const models = {};
+    Object.entries(PROVIDERS).forEach(([providerId, providerConfig]) => {
+      models[providerId] = normalizeModel(
+        sourceModels[providerId],
+        providerConfig.defaultModel
+      );
+    });
+
     return {
       schemaVersion: SCHEMA_VERSION,
       enabled: source.enabled !== false,
@@ -247,22 +384,20 @@
         ? source.description.trim().slice(0, 500)
         : "",
       provider,
-      models: {
-        deepseek: normalizeModel(sourceModels.deepseek, PROVIDERS.deepseek.defaultModel),
-        aihubmix: normalizeModel(sourceModels.aihubmix, PROVIDERS.aihubmix.defaultModel),
-      },
+      models,
     };
   }
 
   function normalizeSecrets(value) {
     const source = value && typeof value === "object" ? value : {};
     const keys = source.keys && typeof source.keys === "object" ? source.keys : {};
+    const normalizedKeys = {};
+    Object.keys(PROVIDERS).forEach((providerId) => {
+      normalizedKeys[providerId] = normalizeSecret(keys[providerId]);
+    });
     return {
       schemaVersion: SCHEMA_VERSION,
-      keys: {
-        deepseek: normalizeSecret(keys.deepseek),
-        aihubmix: normalizeSecret(keys.aihubmix),
-      },
+      keys: normalizedKeys,
     };
   }
 
@@ -745,8 +880,7 @@
           <div class="baf-section-body">
             <label for="baf-provider">API 服务商</label>
             <select id="baf-provider">
-              <option value="deepseek">DeepSeek</option>
-              <option value="aihubmix">AiHubMix</option>
+              ${createProviderOptionsHtml()}
             </select>
 
             <label for="baf-model">模型</label>
@@ -754,6 +888,7 @@
 
             <label for="baf-api-key">API Key</label>
             <input id="baf-api-key" type="password" maxlength="500" autocomplete="new-password" placeholder="只保存在 Tampermonkey 本地">
+            <div id="baf-provider-note" class="baf-rule-note"></div>
 
             <div class="baf-actions">
               <button id="baf-test" type="button">测试连接</button>
@@ -828,6 +963,7 @@
       provider: root.querySelector("#baf-provider"),
       model: root.querySelector("#baf-model"),
       apiKey: root.querySelector("#baf-api-key"),
+      providerNote: root.querySelector("#baf-provider-note"),
       save: root.querySelector("#baf-save"),
       test: root.querySelector("#baf-test"),
       exportButton: root.querySelector("#baf-export"),
@@ -872,6 +1008,12 @@
     elements.suggestRules.addEventListener("click", handleSuggestRules);
 
     return elements;
+  }
+
+  function createProviderOptionsHtml() {
+    return Object.entries(PROVIDERS)
+      .map(([providerId, provider]) => `<option value="${providerId}">${provider.label}</option>`)
+      .join("");
   }
 
   function registerMenuCommand() {
@@ -1054,6 +1196,7 @@
     ui.provider.value = panelProvider;
     ui.model.value = settings.models[panelProvider];
     ui.apiKey.value = secrets.keys[panelProvider];
+    ui.providerNote.textContent = PROVIDERS[panelProvider].hint;
     ui.titleBlacklist.value = rules.titleBlacklist.join("\n");
     ui.titleWhitelist.value = rules.titleWhitelist.join("\n");
     renderBlacklist();
@@ -1073,6 +1216,7 @@
     panelProvider = ui.provider.value;
     ui.model.value = settings.models[panelProvider];
     ui.apiKey.value = secrets.keys[panelProvider];
+    ui.providerNote.textContent = PROVIDERS[panelProvider].hint;
   }
 
   function readPanelValues() {
@@ -2363,13 +2507,10 @@
 
   async function requestJsonResponse(provider, apiKey, body) {
     try {
-      return await requestChatCompletion(provider.endpoint, apiKey, {
-        ...body,
-        response_format: { type: "json_object" },
-      });
+      return await requestChatCompletion(provider, apiKey, body, true);
     } catch (error) {
-      if (Number(error.status) !== 400) throw error;
-      return requestChatCompletion(provider.endpoint, apiKey, body);
+      if (!provider.supportsJsonMode || Number(error.status) !== 400) throw error;
+      return requestChatCompletion(provider, apiKey, body, false);
     }
   }
 
@@ -2479,16 +2620,124 @@
     };
   }
 
-  function requestChatCompletion(endpoint, apiKey, body) {
+  function buildProviderRequest(providerOrId, apiKey, body, useJsonMode = false) {
+    const provider = typeof providerOrId === "string"
+      ? PROVIDERS[providerOrId]
+      : providerOrId;
+    if (!provider) throw new Error("不支持的 API 服务商");
+
+    const sourceBody = body && typeof body === "object" ? clone(body) : {};
+    const headers = { "Content-Type": "application/json" };
+
+    if (provider.apiStyle === "anthropic") {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+      const system = Array.isArray(sourceBody.messages)
+        ? sourceBody.messages
+          .filter((message) => message?.role === "system")
+          .map((message) => String(message.content || ""))
+          .filter(Boolean)
+          .join("\n")
+        : "";
+      const messages = Array.isArray(sourceBody.messages)
+        ? sourceBody.messages
+          .filter((message) => message?.role !== "system")
+          .map((message) => ({
+            role: message.role === "assistant" ? "assistant" : "user",
+            content: String(message.content || ""),
+          }))
+        : [];
+      const payload = {
+        model: sourceBody.model,
+        max_tokens: Math.max(1, Math.floor(Number(sourceBody.max_tokens) || 1)),
+        messages,
+      };
+      if (system) payload.system = system;
+      if (Number.isFinite(Number(sourceBody.temperature))) {
+        payload.temperature = Number(sourceBody.temperature);
+      }
+      return {
+        url: provider.endpoint,
+        headers,
+        body: payload,
+        jsonModeApplied: false,
+      };
+    }
+
+    headers.Authorization = `Bearer ${apiKey}`;
+    const payload = sourceBody;
+    const requestedTokens = Number(payload.max_tokens);
+    delete payload.max_tokens;
+    if (Number.isFinite(requestedTokens) && requestedTokens > 0) {
+      payload[provider.tokenField || "max_tokens"] = Math.floor(requestedTokens);
+    }
+
+    if (provider.id === "openai" && /^gpt-5(?:\.|-|$)/i.test(String(payload.model))) {
+      payload.reasoning_effort = "none";
+      delete payload.temperature;
+    }
+    if (provider.id === "doubao" && /^doubao-seed/i.test(String(payload.model))) {
+      payload.thinking = { type: "disabled" };
+    }
+    if (provider.id === "qwen" && /^qwen3/i.test(String(payload.model))) {
+      payload.enable_thinking = false;
+    }
+    if (provider.id === "zhipu" && /^glm-(?:4\.[5-9]|[5-9])/i.test(String(payload.model))) {
+      payload.thinking = { type: "disabled" };
+    }
+    if (provider.id === "kimi" && /^kimi-k2\.(?:5|6)(?:-|$)/i.test(String(payload.model))) {
+      payload.thinking = { type: "disabled" };
+    }
+    if (provider.id === "hunyuan") {
+      payload.enable_enhancement = false;
+    }
+
+    const jsonModeApplied = Boolean(useJsonMode && provider.supportsJsonMode);
+    if (jsonModeApplied) payload.response_format = { type: "json_object" };
+
+    return {
+      url: provider.endpoint,
+      headers,
+      body: payload,
+      jsonModeApplied,
+    };
+  }
+
+  function normalizeProviderResponse(providerOrId, response) {
+    const provider = typeof providerOrId === "string"
+      ? PROVIDERS[providerOrId]
+      : providerOrId;
+    if (!provider || provider.apiStyle !== "anthropic") return response;
+
+    const content = Array.isArray(response?.content)
+      ? response.content
+        .filter((block) => block?.type === "text" && typeof block.text === "string")
+        .map((block) => block.text)
+        .join("")
+      : "";
+    const stopReason = typeof response?.stop_reason === "string"
+      ? response.stop_reason
+      : "";
+    return {
+      choices: [{
+        message: { role: "assistant", content },
+        finish_reason: stopReason === "max_tokens" ? "length" : stopReason || "stop",
+      }],
+      usage: {
+        prompt_tokens: Number(response?.usage?.input_tokens) || 0,
+        completion_tokens: Number(response?.usage?.output_tokens) || 0,
+      },
+    };
+  }
+
+  function requestChatCompletion(provider, apiKey, body, useJsonMode = false) {
+    const request = buildProviderRequest(provider, apiKey, body, useJsonMode);
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
         method: "POST",
-        url: endpoint,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        data: JSON.stringify(body),
+        url: request.url,
+        headers: request.headers,
+        data: JSON.stringify(request.body),
         timeout: REQUEST_TIMEOUT_MS,
         onload(response) {
           let parsed;
@@ -2509,7 +2758,7 @@
             reject(error);
             return;
           }
-          resolve(parsed);
+          resolve(normalizeProviderResponse(provider, parsed));
         },
         ontimeout() {
           const error = new Error("API 请求超时");

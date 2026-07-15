@@ -8,6 +8,23 @@
 <body>
   <h1>版本记录</h1>
 
+  <h2>v0.5.0（2026-07-15）</h2>
+  <p>把双平台调用扩展为可维护的多厂商适配层，同时继续以低 token 消耗为默认目标。</p>
+  <ul>
+    <li>新增 OpenAI、Google Gemini 和 Anthropic Claude 三个海外服务商。</li>
+    <li>新增豆包（火山方舟）、阿里云百炼（通义千问）、智谱 GLM、Kimi（月之暗面）、腾讯混元和百度千帆（ERNIE）六个中国大陆服务商。</li>
+    <li>保留 DeepSeek 与 AiHubMix，当前共支持 11 个 API 服务商。</li>
+    <li>服务商选择框改为由统一配置表生成，每个平台分别保存模型名和 API Key，切换时不会互相覆盖。</li>
+    <li>请求适配层会自动处理 Bearer 鉴权、Claude <code>x-api-key</code> 与 <code>anthropic-version</code> 请求头。</li>
+    <li>自动转换 <code>max_tokens</code> 与 <code>max_completion_tokens</code>，避免不同兼容接口因参数名差异拒绝请求。</li>
+    <li>加入 Claude Messages 原生请求转换，并把 Claude 内容块、停止原因和 token 用量归一化到脚本现有流程。</li>
+    <li>仅对服务商支持的接口发送 JSON Mode；不支持时继续依靠严格 JSON 提示和既有的一次格式补救。</li>
+    <li>OpenAI GPT-5 系列默认使用 <code>reasoning_effort=none</code>；豆包 Seed、千问 Qwen3、智谱新模型和 Kimi K2.5/K2.6 默认关闭深度思考；腾讯混元默认关闭联网增强。</li>
+    <li>默认模型优先采用各平台当前的轻量、高速、低成本或免费型号，仍允许用户直接修改模型名。</li>
+    <li>旧版设置、密钥存储和 schema v1～v3 备份自动补齐新增平台默认值，不需要手动迁移，也不会导出 API Key。</li>
+    <li>核心自动化测试由 21 项增加到 26 项，新增服务商目录、旧配置兼容、OpenAI 参数转换、Claude 原生格式和平台级 token 优化测试。</li>
+  </ul>
+
   <h2>v0.4.2（2026-07-15）</h2>
   <p>增强首页特殊推荐卡片的视频标识与右键事件识别，修复个别视频无法弹出屏蔽菜单的问题。</p>
   <ul>

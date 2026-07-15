@@ -51,6 +51,150 @@ test("normalizes text and rejects unsupported providers", () => {
   assert.equal(settings.models.deepseek, "deepseek-v4-flash");
 });
 
+test("provides mainstream domestic and overseas API providers", () => {
+  const providers = api.getProviderCatalog();
+  assert.deepEqual(
+    Object.keys(providers),
+    [
+      "deepseek",
+      "aihubmix",
+      "openai",
+      "gemini",
+      "anthropic",
+      "doubao",
+      "qwen",
+      "zhipu",
+      "kimi",
+      "hunyuan",
+      "qianfan",
+    ]
+  );
+  assert.equal(providers.openai.defaultModel, "gpt-5.6-luna");
+  assert.equal(providers.gemini.endpoint.includes("generativelanguage.googleapis.com"), true);
+  assert.equal(providers.anthropic.apiStyle, "anthropic");
+  assert.equal(providers.doubao.defaultModel, "doubao-seed-2-0-lite-260215");
+  assert.equal(providers.zhipu.defaultModel, "glm-4.7-flash");
+  assert.equal(providers.qianfan.defaultModel, "ernie-5.0");
+});
+
+test("fills new provider models and keys while preserving old settings", () => {
+  const settings = api.normalizeSettings({
+    provider: "openai",
+    models: {
+      deepseek: "deepseek-custom",
+      openai: " gpt-5.6-terra ",
+    },
+  });
+  assert.equal(settings.provider, "openai");
+  assert.equal(settings.models.deepseek, "deepseek-custom");
+  assert.equal(settings.models.openai, "gpt-5.6-terra");
+  assert.equal(settings.models.anthropic, "claude-haiku-4-5");
+  assert.equal(settings.models.qwen, "qwen3.6-flash");
+
+  const secrets = api.normalizeSecrets({
+    keys: { deepseek: " old-key ", openai: " new-key " },
+  });
+  assert.equal(secrets.keys.deepseek, "old-key");
+  assert.equal(secrets.keys.openai, "new-key");
+  assert.equal(secrets.keys.anthropic, "");
+  assert.equal(Object.keys(secrets.keys).length, Object.keys(api.getProviderCatalog()).length);
+});
+
+test("adapts OpenAI token and reasoning parameters without mutating the source body", () => {
+  const sourceBody = {
+    model: "gpt-5.6-luna",
+    messages: [
+      { role: "system", content: "Return JSON." },
+      { role: "user", content: "Classify this." },
+    ],
+    temperature: 0,
+    max_tokens: 190,
+  };
+  const request = api.buildProviderRequest("openai", "openai-key", sourceBody, true);
+  assert.equal(request.url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(request.headers.Authorization, "Bearer openai-key");
+  assert.equal(request.body.max_completion_tokens, 190);
+  assert.equal(Object.hasOwn(request.body, "max_tokens"), false);
+  assert.equal(Object.hasOwn(request.body, "temperature"), false);
+  assert.equal(request.body.reasoning_effort, "none");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(request.body.response_format)),
+    { type: "json_object" }
+  );
+  assert.equal(sourceBody.max_tokens, 190);
+  assert.equal(sourceBody.temperature, 0);
+});
+
+test("adapts Claude Messages requests and normalizes native responses", () => {
+  const request = api.buildProviderRequest("anthropic", "claude-key", {
+    model: "claude-haiku-4-5",
+    messages: [
+      { role: "system", content: "Return JSON." },
+      { role: "user", content: "Classify this." },
+    ],
+    temperature: 0,
+    max_tokens: 320,
+  }, true);
+  assert.equal(request.url, "https://api.anthropic.com/v1/messages");
+  assert.equal(request.headers["x-api-key"], "claude-key");
+  assert.equal(request.headers["anthropic-version"], "2023-06-01");
+  assert.equal(Object.hasOwn(request.headers, "Authorization"), false);
+  assert.equal(request.body.system, "Return JSON.");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(request.body.messages)),
+    [{ role: "user", content: "Classify this." }]
+  );
+  assert.equal(request.body.max_tokens, 320);
+  assert.equal(request.jsonModeApplied, false);
+
+  const normalized = api.normalizeProviderResponse("anthropic", {
+    content: [
+      { type: "thinking", thinking: "hidden" },
+      { type: "text", text: '{"results":[]}' },
+    ],
+    stop_reason: "max_tokens",
+    usage: { input_tokens: 40, output_tokens: 12 },
+  });
+  assert.equal(normalized.choices[0].message.content, '{"results":[]}');
+  assert.equal(normalized.choices[0].finish_reason, "length");
+  assert.equal(normalized.usage.completion_tokens, 12);
+});
+
+test("applies token-saving options only where each compatible provider supports them", () => {
+  const body = {
+    model: "placeholder",
+    messages: [{ role: "user", content: "Return JSON." }],
+    temperature: 0,
+    max_tokens: 550,
+  };
+  const qwen = api.buildProviderRequest("qwen", "key", {
+    ...body,
+    model: "qwen3.6-flash",
+  }, true);
+  assert.equal(qwen.body.max_tokens, 550);
+  assert.equal(qwen.body.enable_thinking, false);
+  assert.equal(qwen.jsonModeApplied, true);
+
+  const kimi = api.buildProviderRequest("kimi", "key", {
+    ...body,
+    model: "kimi-k2.6",
+  }, true);
+  assert.equal(kimi.body.max_completion_tokens, 550);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(kimi.body.thinking)),
+    { type: "disabled" }
+  );
+
+  const hunyuan = api.buildProviderRequest("hunyuan", "key", {
+    ...body,
+    model: "hunyuan-turbos-latest",
+  }, true);
+  assert.equal(hunyuan.body.max_tokens, 550);
+  assert.equal(hunyuan.body.enable_enhancement, false);
+  assert.equal(Object.hasOwn(hunyuan.body, "response_format"), false);
+  assert.equal(hunyuan.jsonModeApplied, false);
+});
+
 test("parses strict JSON model results including fenced output", () => {
   const results = api.parseModelResults(
     '```json\n{"results":[{"id":"i1","match":true,"confidence":0.91,"reason":"语义命中"},{"id":"i2","match":false,"confidence":0.2,"reason":"不匹配"}]}\n```',
