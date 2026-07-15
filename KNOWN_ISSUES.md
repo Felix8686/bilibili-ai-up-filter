@@ -1,11 +1,3 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>已知问题 - B站首页 AI UP 主过滤器</title>
-</head>
-<body>
   <h1>已知问题</h1>
   <p>以下问题最初记录于 v0.1.0，已在 v0.2.0 中处理。</p>
 
@@ -22,5 +14,3 @@
     <li>处理方式：桌面端浮动按钮向左移动到 B 站右侧工具栏外侧；窄屏下改为底部避让。</li>
     <li>状态：已在 v0.2.0 修复。</li>
   </ul>
-</body>
-</html>

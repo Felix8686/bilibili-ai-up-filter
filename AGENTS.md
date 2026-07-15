@@ -11,7 +11,7 @@
 <ol>
   <li>运行 JavaScript 语法检查、核心测试和适用的回归测试。</li>
   <li>递增用户脚本中的 <code>@version</code>。</li>
-  <li>同步更新 <code>README.html</code>、<code>CHANGELOG.html</code> 和 <code>GREASYFORK_DESCRIPTION.html</code>。</li>
+  <li>同步更新 <code>README.md</code>、<code>CHANGELOG.md</code> 和 <code>GREASYFORK_DESCRIPTION.html</code>。</li>
   <li>检查差异，创建 Conventional Commits 风格的提交和对应版本标签。</li>
   <li>将主分支及版本标签推送到 GitHub。</li>
   <li>将同一版本的脚本代码同步到 Greasy Fork。</li>

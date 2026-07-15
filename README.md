@@ -1,11 +1,3 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>B站首页 AI UP 主过滤器</title>
-</head>
-<body>
   <h1>B站首页 AI UP 主过滤器</h1>
 
   <p>当前版本：<strong>v0.5.0</strong></p>
@@ -184,7 +176,7 @@
     <li>浮动按钮移至 B 站右侧工具栏左边，避免遮挡返回顶部按钮。</li>
     <li>备份格式升级并保持对 v0.1.0 备份的导入兼容。</li>
   </ul>
-  <p>完整版本记录请查看 <a href="CHANGELOG.html">CHANGELOG.html</a>。</p>
+  <p>完整版本记录请查看 <a href="CHANGELOG.md">CHANGELOG.md</a>。</p>
 
   <h2>开发检查</h2>
   <p>在本目录运行以下命令：</p>
@@ -193,9 +185,7 @@ node --test tests/core.test.js</code></pre>
 
   <h2>项目文档</h2>
   <ul>
-    <li><a href="CHANGELOG.html">版本记录</a></li>
-    <li><a href="KNOWN_ISSUES.html">已知问题</a></li>
+    <li><a href="CHANGELOG.md">版本记录</a></li>
+    <li><a href="KNOWN_ISSUES.md">已知问题</a></li>
     <li><a href="GREASYFORK_DESCRIPTION.html">Greasy Fork 脚本介绍</a></li>
   </ul>
-</body>
-</html>

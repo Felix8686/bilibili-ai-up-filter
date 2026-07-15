@@ -1,11 +1,3 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>版本记录 - B站首页 AI UP 主过滤器</title>
-</head>
-<body>
   <h1>版本记录</h1>
 
   <h2>v0.5.0（2026-07-15）</h2>
@@ -126,5 +118,3 @@
     <li>提供基础配置、连接测试、黑名单删除及 JSON 导入导出。</li>
     <li>API 故障时保持视频显示，避免故障造成误隐藏。</li>
   </ul>
-</body>
-</html>
