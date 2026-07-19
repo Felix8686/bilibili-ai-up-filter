@@ -1,5 +1,19 @@
   <h1>版本记录</h1>
 
+  <h2>v0.6.0（2026-07-19）</h2>
+  <p>新增 YouTube 首页标准视频推荐支持，并把原有 B 站专用提取逻辑整理为跨站适配层。</p>
+  <ul>
+    <li>用户脚本新增 <code>youtube.com</code> 匹配，仅在 YouTube 根路径首页处理标准 <code>/watch?v=</code> 视频卡片。</li>
+    <li>新增 YouTube <code>ytd-rich-item-renderer</code> 和旧式网格卡片识别，支持首屏、无限滚动及 <code>yt-navigate-finish</code> 单页导航事件。</li>
+    <li>站内导航离开首页时会清空旧页面待判断队列，并忽略已经发出但稍后返回的旧页面结果；返回首页后重新建立当前页面队列。</li>
+    <li>YouTube 视频使用 <code>yt:&lt;videoId&gt;</code>，创作者使用 <code>yt:handle:*</code>、<code>yt:channel:*</code> 等标识，避免与 BVID、AV 号和 B 站 UID 冲突。</li>
+    <li>扩展现有学习样本、AI 缓存、创作者黑白名单和备份校验，使 schema v3 同时兼容两个站点，无需迁移旧数据。</li>
+    <li>YouTube 首页复用本地规则优先、缓存复用、批量 AI、右键不喜欢、主动学习、手动拉黑/放行创作者和暂停监视链路。</li>
+    <li>显式跳过 Shorts 区块、广告卡片和频道标识尚未加载的卡片，信息不足或 API 故障时保持显示。</li>
+    <li>设置面板和 AI 提示中的“UP 主”统一调整为“创作者”，状态栏显示当前处理的平台。</li>
+    <li>核心自动化测试由 26 项增加到 29 项；新增 YouTube 首页与导航竞态 HTML 集成测试，并保留 B 站原集成测试全量回归。</li>
+  </ul>
+
   <h2>v0.5.0（2026-07-15）</h2>
   <p>把双平台调用扩展为可维护的多厂商适配层，同时继续以低 token 消耗为默认目标。</p>
   <ul>

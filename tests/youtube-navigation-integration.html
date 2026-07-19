@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>YouTube 导航竞态集成测试</title>
+</head>
+<body>
+  <ytd-rich-item-renderer id="stale-card">
+    <a id="thumbnail" href="/watch?v=ytStale0001"></a>
+    <a id="video-title-link" href="/watch?v=ytStale0001" title="导航前的焦虑营销视频">导航前的焦虑营销视频</a>
+    <ytd-channel-name><a href="/@stalechannel">Stale Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SITE__ = "youtube";
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: false,
+        description: "焦虑营销",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({
+        schemaVersion: 3,
+        keys: { deepseek: "test-key" }
+      })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 3, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    let requestSent = false;
+    let responseDelivered = false;
+    let navigationStartDispatched = false;
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = (options) => {
+      requestSent = true;
+      setTimeout(() => {
+        responseDelivered = true;
+        options.onload({
+          status: 200,
+          responseText: JSON.stringify({
+            choices: [{
+              finish_reason: "stop",
+              message: { content: JSON.stringify({
+                results: [{
+                  id: "i1",
+                  match: true,
+                  confidence: 0.96,
+                  reason: "命中旧页面测试描述"
+                }]
+              }) }
+            }]
+          })
+        });
+      }, 700);
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    const navigationPoll = setInterval(() => {
+      if (!requestSent || navigationStartDispatched) return;
+      navigationStartDispatched = true;
+      document.querySelector("#stale-card").remove();
+      document.dispatchEvent(new Event("yt-navigate-start"));
+      clearInterval(navigationPoll);
+    }, 20);
+
+    setTimeout(() => {
+      const cache = JSON.parse(store.get("baf.ai-cache.v1"));
+      const oldResultIgnored = !cache.entries["yt:ytStale0001"];
+      const passed = requestSent
+        && responseDelivered
+        && navigationStartDispatched
+        && oldResultIgnored;
+      const result = document.querySelector("#baf-test-result");
+      result.textContent = passed ? "PASS" : "FAIL";
+      result.dataset.details = JSON.stringify({
+        requestSent,
+        responseDelivered,
+        navigationStartDispatched,
+        oldResultIgnored
+      });
+    }, 1800);
+  </script>
+</body>
+</html>

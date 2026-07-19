@@ -35,6 +35,31 @@ test("extracts BV and AV video IDs from direct and encoded links", () => {
   assert.equal(api.extractBvid("https://www.bilibili.com/video/av123456"), "");
 });
 
+test("extracts namespaced YouTube video and creator IDs", () => {
+  assert.equal(
+    api.extractYouTubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10"),
+    "yt:dQw4w9WgXcQ"
+  );
+  assert.equal(api.extractYouTubeVideoId("https://youtu.be/dQw4w9WgXcQ"), "yt:dQw4w9WgXcQ");
+  assert.equal(api.extractVideoId("yt:dQw4w9WgXcQ"), "yt:dQw4w9WgXcQ");
+  assert.equal(api.extractYouTubeVideoId("BV1Sample01"), "");
+  assert.equal(api.extractVideoId("BV1Sample01"), "BV1Sample01");
+  assert.equal(api.extractYouTubeVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ"), "");
+  assert.equal(api.extractYouTubeCreatorId("https://www.youtube.com/@ExampleCreator/videos"), "yt:handle:examplecreator");
+  assert.equal(api.extractYouTubeCreatorId("/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw"), "yt:channel:UC_x5XG1OV2P6uZZ5FSM9Ttw");
+  assert.equal(api.isSupportedVideoId("yt:dQw4w9WgXcQ"), true);
+  assert.equal(api.isSupportedCreatorId("yt:handle:examplecreator"), true);
+});
+
+test("limits both supported sites to their homepage", () => {
+  assert.equal(api.resolveSiteId("www.bilibili.com"), "bilibili");
+  assert.equal(api.resolveSiteId("www.youtube.com"), "youtube");
+  assert.equal(api.isHomepageLocation("www.bilibili.com", "/"), true);
+  assert.equal(api.isHomepageLocation("www.youtube.com", "/"), true);
+  assert.equal(api.isHomepageLocation("www.youtube.com", "/feed/subscriptions"), false);
+  assert.equal(api.isHomepageLocation("www.youtube.com", "/watch"), false);
+});
+
 test("normalizes text and rejects unsupported providers", () => {
   assert.equal(api.normalizeText("  测试\n\t标题  "), "测试 标题");
   const settings = api.normalizeSettings({
@@ -305,6 +330,36 @@ test("normalizes BV and AV manual dislike samples and drops invalid IDs", () => 
   assert.equal(learning.samples.av123.title, "旧式 AV 链接视频");
 });
 
+test("normalizes YouTube learning samples and creator rules without changing Bilibili data", () => {
+  const learning = api.normalizeLearning({
+    samples: {
+      youtube: {
+        bvid: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: " YouTube 测试视频 ",
+        uid: "yt:handle:examplecreator",
+        upName: "Example Creator",
+        addedAt: "2026-07-19T01:00:00.000Z",
+      },
+    },
+  });
+  assert.equal(learning.samples["yt:dQw4w9WgXcQ"].title, "YouTube 测试视频");
+  assert.equal(learning.samples["yt:dQw4w9WgXcQ"].uid, "yt:handle:examplecreator");
+
+  const rules = api.normalizeRules({
+    upWhitelist: {
+      youtube: {
+        uid: "yt:channel:UC_x5XG1OV2P6uZZ5FSM9Ttw",
+        name: "Google for Developers",
+        addedAt: "2026-07-19T01:00:00.000Z",
+      },
+    },
+  });
+  assert.equal(
+    rules.upWhitelist["yt:channel:UC_x5XG1OV2P6uZZ5FSM9Ttw"].name,
+    "Google for Developers"
+  );
+});
+
 test("matches normalized keyword and regex title rules", () => {
   assert.equal(api.matchTitleRules("这是一个ＭＢＴＩ测试", ["mbti"]), "mbti");
   assert.equal(api.matchTitleRules("教你月入十万", ["/月入|日赚/"]), "/月入|日赚/");
@@ -448,13 +503,13 @@ test("uses the fixed 0.80 confidence threshold", () => {
   assert.equal(api.isConfidentMatch({ match: false, confidence: 1 }), false);
 });
 
-test("rejects backups containing invalid blacklist UIDs", () => {
+test("rejects backups containing invalid creator IDs", () => {
   assert.throws(
     () => api.validateBackup({
       schemaVersion: 1,
       settings: {},
       blacklist: [{ uid: "not-a-uid" }],
     }),
-    /无效 UID/
+    /无效创作者标识/
   );
 });

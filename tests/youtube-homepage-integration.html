@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>YouTube 首页 AI 过滤集成测试</title>
+</head>
+<body>
+  <ytd-rich-item-renderer id="local-rule-card">
+    <a id="thumbnail" href="/watch?v=ytLocal0001"></a>
+    <a id="video-title-link" href="/watch?v=ytLocal0001" title="本地屏蔽规则测试">本地屏蔽规则测试</a>
+    <ytd-channel-name><a href="/@localchannel">Local Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="blocked-creator-card">
+    <a id="thumbnail" href="/watch?v=ytBlock0001"></a>
+    <a id="video-title-link" href="/watch?v=ytBlock0001" title="普通视频但频道已拉黑">普通视频但频道已拉黑</a>
+    <ytd-channel-name><a href="/@blockedchannel">Blocked Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="title-whitelist-card">
+    <a id="thumbnail" href="/watch?v=ytWhite0001"></a>
+    <a id="video-title-link" href="/watch?v=ytWhite0001" title="焦虑营销但属于白名单例外">焦虑营销但属于白名单例外</a>
+    <ytd-channel-name><a href="/@ordinarychannel">Ordinary Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="creator-whitelist-card">
+    <a id="thumbnail" href="/watch?v=ytTrust0001"></a>
+    <a id="video-title-link" href="/watch?v=ytTrust0001" title="焦虑营销但来自可信频道">焦虑营销但来自可信频道</a>
+    <ytd-channel-name><a href="/@trustedchannel">Trusted Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="ai-match-card">
+    <a id="thumbnail" href="/watch?v=ytMatch0001"></a>
+    <a id="video-title-link" href="/watch?v=ytMatch0001" title="焦虑营销课程宣传">焦虑营销课程宣传</a>
+    <ytd-channel-name><a href="/@aichannel">AI Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="safe-card">
+    <a id="thumbnail" href="/watch?v=ytSafe00001"></a>
+    <a id="video-title-link" href="/watch?v=ytSafe00001" title="正常科学纪录片">正常科学纪录片</a>
+    <ytd-channel-name><a href="/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw">Science Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="manual-dislike-card">
+    <a id="thumbnail" href="/watch?v=ytManual001"></a>
+    <a id="video-title-link" href="/watch?v=ytManual001" title="用户手动标记的视频">用户手动标记的视频</a>
+    <ytd-channel-name><a href="/@manualchannel">Manual Channel</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="manual-block-card">
+    <a id="thumbnail" href="/watch?v=ytBlockRt01"></a>
+    <a id="video-title-link" href="/watch?v=ytBlockRt01" title="需要手动拉黑创作者的视频">需要手动拉黑创作者的视频</a>
+    <ytd-channel-name><a href="/@manualblock">Manual Block</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="manual-allow-card">
+    <a id="thumbnail" href="/watch?v=ytAllowRt01"></a>
+    <a id="video-title-link" href="/watch?v=ytAllowRt01" title="本地屏蔽但手动放行">本地屏蔽但手动放行</a>
+    <ytd-channel-name><a href="/@manualallow">Manual Allow</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-item-renderer id="ad-card">
+    <ytd-ad-slot-renderer></ytd-ad-slot-renderer>
+    <a id="thumbnail" href="/watch?v=ytAdCard001"></a>
+    <a id="video-title-link" href="/watch?v=ytAdCard001" title="焦虑营销广告">焦虑营销广告</a>
+    <ytd-channel-name><a href="/@advertiser">Advertiser</a></ytd-channel-name>
+  </ytd-rich-item-renderer>
+
+  <ytd-rich-section-renderer id="shorts-section">
+    <ytd-rich-item-renderer id="shorts-card">
+      <a id="thumbnail" href="/watch?v=ytShort0001"></a>
+      <a id="video-title-link" href="/watch?v=ytShort0001" title="焦虑营销 Shorts 区块">焦虑营销 Shorts 区块</a>
+      <ytd-channel-name><a href="/@shortschannel">Shorts Channel</a></ytd-channel-name>
+    </ytd-rich-item-renderer>
+  </ytd-rich-section-renderer>
+
+  <ytd-rich-item-renderer id="missing-channel-card">
+    <a id="thumbnail" href="/watch?v=ytMissing01"></a>
+    <a id="video-title-link" href="/watch?v=ytMissing01" title="焦虑营销但频道标识缺失">焦虑营销但频道标识缺失</a>
+  </ytd-rich-item-renderer>
+
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SITE__ = "youtube";
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "焦虑营销",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({
+        schemaVersion: 3,
+        keys: { deepseek: "test-key" }
+      })],
+      ["baf.blacklist.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {
+          "yt:handle:blockedchannel": {
+            uid: "yt:handle:blockedchannel",
+            name: "Blocked Channel",
+            addedAt: "2026-07-19T00:00:00.000Z",
+            source: "manual"
+          }
+        }
+      })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: ["本地屏蔽"],
+        titleWhitelist: ["白名单例外"],
+        upWhitelist: {
+          "yt:handle:trustedchannel": {
+            uid: "yt:handle:trustedchannel",
+            name: "Trusted Channel",
+            addedAt: "2026-07-19T00:00:00.000Z"
+          }
+        },
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    const evaluatedTitles = [];
+    let learningRequestCount = 0;
+    let classificationCountWhenPaused = 0;
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = (options) => {
+      const request = JSON.parse(options.data);
+      const userPayload = JSON.parse(request.messages[1].content);
+      if (userPayload.dislikedVideo) {
+        learningRequestCount += 1;
+        setTimeout(() => options.onload({
+          status: 200,
+          responseText: JSON.stringify({
+            choices: [{
+              finish_reason: "stop",
+              message: { content: JSON.stringify({
+                analysis: "用户主动标记不喜欢",
+                traits: ["手动样本"],
+                learnedProfile: "过滤与手动不喜欢样本相似的视频"
+              }) }
+            }]
+          })
+        }), 20);
+        return;
+      }
+
+      evaluatedTitles.push(...userPayload.items.map((item) => item.title));
+      const results = userPayload.items.map((item) => ({
+        id: item.id,
+        match: item.title.includes("焦虑营销"),
+        confidence: item.title.includes("焦虑营销") ? 0.96 : 0.1,
+        reason: item.title.includes("焦虑营销") ? "命中测试描述" : ""
+      }));
+      setTimeout(() => options.onload({
+        status: 200,
+        responseText: JSON.stringify({
+          choices: [{
+            finish_reason: "stop",
+            message: { content: JSON.stringify({ results }) }
+          }]
+        })
+      }), 20);
+    };
+
+    function dispatchContextMenu(selector) {
+      document.querySelector(selector).dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 40,
+        clientY: 40
+      }));
+    }
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      window.__initialState = {
+        noAutomaticAi: evaluatedTitles.length === 0,
+        localRuleHidden: document.querySelector("#local-rule-card").classList.contains("baf-hidden"),
+        blockedCreatorHidden: document.querySelector("#blocked-creator-card").classList.contains("baf-hidden"),
+        titleWhitelistVisible: !document.querySelector("#title-whitelist-card").classList.contains("baf-hidden"),
+        creatorWhitelistVisible: !document.querySelector("#creator-whitelist-card").classList.contains("baf-hidden"),
+        pausedLabelVisible: document.querySelector("#baf-toggle").textContent.includes("已暂停")
+      };
+      document.querySelector("#baf-monitor-toggle").click();
+    }, 150);
+
+    setTimeout(() => {
+      const safeBefore = evaluatedTitles.filter((title) => title === "正常科学纪录片").length;
+      window.__safeEvaluationBeforeReplacement = safeBefore;
+      document.querySelector("#safe-card").remove();
+      const replacement = document.createElement("ytd-rich-item-renderer");
+      replacement.id = "safe-card-reloaded";
+      replacement.innerHTML = `
+        <a id="thumbnail" href="/watch?v=ytSafe00001"></a>
+        <a id="video-title-link" href="/watch?v=ytSafe00001" title="正常科学纪录片">正常科学纪录片</a>
+        <ytd-channel-name><a href="/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw">Science Channel</a></ytd-channel-name>
+      `;
+      document.body.appendChild(replacement);
+
+      const dynamic = document.createElement("ytd-rich-item-renderer");
+      dynamic.id = "dynamic-card";
+      dynamic.innerHTML = `
+        <a id="thumbnail" href="/watch?v=ytDynamic01"></a>
+        <a id="video-title-link" href="/watch?v=ytDynamic01" title="动态加载的焦虑营销视频">动态加载的焦虑营销视频</a>
+        <ytd-channel-name><a href="/@dynamicchannel">Dynamic Channel</a></ytd-channel-name>
+      `;
+      document.body.appendChild(dynamic);
+      document.dispatchEvent(new Event("yt-navigate-finish"));
+    }, 1500);
+
+    setTimeout(() => {
+      window.__beforePause = {
+        aiMatchedHidden: document.querySelector("#ai-match-card").classList.contains("baf-hidden"),
+        dynamicHidden: document.querySelector("#dynamic-card").classList.contains("baf-hidden")
+      };
+      classificationCountWhenPaused = evaluatedTitles.length;
+      document.querySelector("#baf-monitor-toggle").click();
+      dispatchContextMenu("#manual-dislike-card");
+      document.querySelector("#baf-dislike").click();
+    }, 3500);
+
+    setTimeout(() => {
+      dispatchContextMenu("#manual-block-card");
+      document.querySelector("#baf-block-up").click();
+      dispatchContextMenu("#manual-allow-card");
+      document.querySelector("#baf-allow-up").click();
+    }, 4000);
+
+    setTimeout(() => {
+      const savedBlacklist = JSON.parse(store.get("baf.blacklist.v1"));
+      const savedRules = JSON.parse(store.get("baf.rules.v1"));
+      const savedLearning = JSON.parse(store.get("baf.learning.v1"));
+      const savedCache = JSON.parse(store.get("baf.ai-cache.v1"));
+      const safeEvaluationCount = evaluatedTitles
+        .filter((title) => title === "正常科学纪录片").length;
+      const details = {
+        initialPauseWorks: window.__initialState?.noAutomaticAi
+          && window.__initialState?.localRuleHidden
+          && window.__initialState?.blockedCreatorHidden
+          && window.__initialState?.titleWhitelistVisible
+          && window.__initialState?.creatorWhitelistVisible
+          && window.__initialState?.pausedLabelVisible,
+        aiMatchedHidden: window.__beforePause?.aiMatchedHidden,
+        safeVisible: !document.querySelector("#safe-card-reloaded").classList.contains("baf-hidden"),
+        dynamicHidden: window.__beforePause?.dynamicHidden,
+        cachePersisted: Boolean(savedCache.entries["yt:ytSafe00001"]),
+        cacheReused: safeEvaluationCount === window.__safeEvaluationBeforeReplacement,
+        aiMatchCache: savedCache.entries["yt:ytMatch0001"]?.match === true,
+        dynamicCache: savedCache.entries["yt:ytDynamic01"]?.match === true,
+        adIgnored: !document.querySelector("#ad-card").classList.contains("baf-hidden")
+          && !evaluatedTitles.includes("焦虑营销广告"),
+        shortsIgnored: !document.querySelector("#shorts-card").classList.contains("baf-hidden")
+          && !evaluatedTitles.includes("焦虑营销 Shorts 区块"),
+        missingChannelIgnored: !document.querySelector("#missing-channel-card").classList.contains("baf-hidden")
+          && !evaluatedTitles.includes("焦虑营销但频道标识缺失"),
+        manualLearningWhilePaused: learningRequestCount === 1
+          && Boolean(savedLearning.samples["yt:ytManual001"]?.analyzedAt)
+          && document.querySelector("#manual-dislike-card").classList.contains("baf-hidden")
+          && evaluatedTitles.length === classificationCountWhenPaused
+          && JSON.parse(store.get("baf.settings.v1")).monitoringPaused === true,
+        creatorBlockedByRightClick: Boolean(savedBlacklist.entries["yt:handle:manualblock"])
+          && document.querySelector("#manual-block-card").classList.contains("baf-hidden"),
+        creatorAllowedByRightClick: Boolean(savedRules.upWhitelist["yt:handle:manualallow"])
+          && !document.querySelector("#manual-allow-card").classList.contains("baf-hidden"),
+        noAutomaticCreatorBlacklist: !savedBlacklist.entries["yt:handle:aichannel"],
+        platformStatusVisible: document.querySelector("#baf-summary").textContent.includes("YouTube 首页")
+      };
+      const passed = Object.values(details).every(Boolean);
+      const result = document.querySelector("#baf-test-result");
+      result.textContent = passed ? "PASS" : "FAIL";
+      result.dataset.details = JSON.stringify({
+        ...details,
+        evaluatedTitles,
+        learningRequestCount,
+        safeEvaluationCount,
+        status: document.querySelector("#baf-status").textContent
+      });
+    }, 5200);
+  </script>
+</body>
+</html>
