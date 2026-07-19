@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | 浮动按钮文案与自动监视开关状态同步
 
   function formatApiError(error, operation = "AI 判断") {
     const status = Number(error.status || 0);
@@ -42,16 +43,16 @@
     ui.toggle.textContent = !settings.enabled
       ? "AI 过滤已关"
       : settings.monitoringPaused
-        ? `AI 已暂停 · ${count}`
+        ? `AI 监视关 · ${count}`
         : `AI 过滤 · ${count}`;
     ui.root.classList.toggle("baf-monitor-paused", settings.monitoringPaused);
     ui.monitorToggle.textContent = settings.monitoringPaused ? "▶" : "⏸";
     ui.monitorToggle.setAttribute(
       "aria-label",
-      settings.monitoringPaused ? "恢复自动 AI 监视" : "暂停自动 AI 监视"
+      settings.monitoringPaused ? "开启自动 AI 监视" : "关闭自动 AI 监视"
     );
     ui.monitorToggle.title = settings.monitoringPaused
-      ? "恢复自动 AI 监视"
-      : "暂停自动 AI 监视；本地规则与缓存继续生效";
+      ? "开启自动 AI 监视（会提示隐私风险）"
+      : "关闭自动 AI 监视；本地规则与缓存继续生效";
   }
 })();

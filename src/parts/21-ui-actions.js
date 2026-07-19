@@ -1,5 +1,7 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 允许频道标识未加载时手动隐藏当前 YouTube 视频
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | 修复 YouTube Shadow DOM 右键候选识别
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | 自动监视开关、开启风险确认，并与浮动按钮同步
 
   function registerMenuCommand() {
     GM_registerMenuCommand("打开首页 AI 视频过滤设置", () => {
@@ -197,6 +199,7 @@
   function syncPanel() {
     panelProvider = settings.provider;
     ui.enabled.checked = settings.enabled;
+    ui.autoMonitor.checked = !settings.monitoringPaused;
     ui.description.value = settings.description;
     ui.provider.value = panelProvider;
     ui.model.value = settings.models[panelProvider];
@@ -232,6 +235,7 @@
     ];
     return {
       enabled: ui.enabled.checked,
+      autoMonitor: ui.autoMonitor.checked,
       description: ui.description.value.trim().slice(0, 500),
       provider,
       model: normalizeModel(ui.model.value, PROVIDERS[provider].defaultModel),
@@ -242,6 +246,53 @@
     };
   }
 
+  function confirmEnableAutomaticMonitoring() {
+    if (typeof window.confirm !== "function") return true;
+    return window.confirm(AUTO_MONITOR_RISK_MESSAGE);
+  }
+
+  function setAutomaticMonitoring(enabled, options = {}) {
+    const wantEnabled = Boolean(enabled);
+    const currentlyEnabled = !settings.monitoringPaused;
+    if (wantEnabled === currentlyEnabled) {
+      if (ui?.autoMonitor) ui.autoMonitor.checked = wantEnabled;
+      updateToggle();
+      return true;
+    }
+
+    if (wantEnabled && options.skipConfirm !== true && !confirmEnableAutomaticMonitoring()) {
+      if (ui?.autoMonitor) ui.autoMonitor.checked = false;
+      updateToggle();
+      setStatus("已取消开启自动 AI 监视", "");
+      return false;
+    }
+
+    settings.monitoringPaused = !wantEnabled;
+    monitoringGeneration += 1;
+    retryNotBefore = 0;
+    sessionLearningAttempts.clear();
+    cancelPendingEvaluations();
+    if (options.persist !== false) saveSettings();
+    if (ui?.autoMonitor) ui.autoMonitor.checked = wantEnabled;
+    updateToggle();
+
+    if (settings.monitoringPaused) {
+      setStatus("自动 AI 监视已关闭；本地规则与已有缓存继续生效", "ok");
+    } else {
+      setStatus("自动 AI 监视已开启", "ok");
+      if (options.processLearning !== false) processPendingLearning();
+    }
+    if (options.scan !== false) scheduleScan(0);
+    return true;
+  }
+
+  function handleAutoMonitorCheckboxChange() {
+    const enabled = ui.autoMonitor.checked;
+    if (!setAutomaticMonitoring(enabled)) {
+      ui.autoMonitor.checked = false;
+    }
+  }
+
   function handleSave() {
     const values = readPanelValues();
     if (values.invalidRegexRules.length) {
@@ -249,7 +300,18 @@
       setStatus(`规则“${invalid.rule}”未保存：${invalid.reason}`, "error");
       return;
     }
+
+    const wantAutoMonitor = values.autoMonitor;
+    if (wantAutoMonitor && settings.monitoringPaused) {
+      if (!confirmEnableAutomaticMonitoring()) {
+        ui.autoMonitor.checked = false;
+        setStatus("已取消开启自动 AI 监视；其余设置未保存", "error");
+        return;
+      }
+    }
+
     settings.enabled = values.enabled;
+    settings.monitoringPaused = !wantAutoMonitor;
     settings.description = values.description;
     settings.provider = values.provider;
     settings.models[values.provider] = values.model;
@@ -265,29 +327,20 @@
     resetSessionJudgments();
     saveSettingsAndSecrets();
     saveRules();
-    setStatus("设置已保存", "ok");
+    setStatus(
+      settings.monitoringPaused
+        ? "设置已保存；自动 AI 监视保持关闭"
+        : "设置已保存；自动 AI 监视已开启",
+      "ok"
+    );
     syncPanel();
     scheduleScan(0);
-    processPendingLearning();
+    if (!settings.monitoringPaused) processPendingLearning();
   }
 
   function handleMonitoringToggle(event) {
     event?.stopPropagation();
-    settings.monitoringPaused = !settings.monitoringPaused;
-    monitoringGeneration += 1;
-    retryNotBefore = 0;
-    sessionLearningAttempts.clear();
-    cancelPendingEvaluations();
-    saveSettings();
-    updateToggle();
-
-    if (settings.monitoringPaused) {
-      setStatus("自动 AI 监视已暂停；本地规则与已有缓存继续生效", "ok");
-    } else {
-      setStatus("自动 AI 监视已恢复", "ok");
-      processPendingLearning();
-    }
-    scheduleScan(0);
+    setAutomaticMonitoring(settings.monitoringPaused);
   }
 
   async function handleConnectionTest() {

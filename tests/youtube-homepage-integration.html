@@ -209,7 +209,7 @@
         blockedCreatorHidden: document.querySelector("#blocked-creator-card").classList.contains("baf-hidden"),
         titleWhitelistVisible: !document.querySelector("#title-whitelist-card").classList.contains("baf-hidden"),
         creatorWhitelistVisible: !document.querySelector("#creator-whitelist-card").classList.contains("baf-hidden"),
-        pausedLabelVisible: document.querySelector("#baf-toggle").textContent.includes("已暂停")
+        pausedLabelVisible: /已暂停|监视关/.test(document.querySelector("#baf-toggle").textContent || "")
       };
       document.querySelector("#baf-monitor-toggle").click();
     }, 150);

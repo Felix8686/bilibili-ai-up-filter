@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | 设置面板增加「启用自动 AI 监视」开关
 
   function addStyles() {
     const style = document.createElement("style");
@@ -198,6 +199,14 @@
         createUiElement("input", { id: "baf-enabled", type: "checkbox" }),
         createUiElement("span", { text: "启用首页过滤" }),
       ]),
+      createUiElement("label", { className: "baf-inline" }, [
+        createUiElement("input", { id: "baf-auto-monitor", type: "checkbox" }),
+        createUiElement("span", { text: "启用自动 AI 监视" }),
+      ]),
+      createUiElement("div", {
+        className: "baf-rule-note",
+        text: "默认关闭。开启后才会把本地无法判断的标题与创作者名发送给 AI 服务商；本地规则始终可用。",
+      }),
       createUiElement("label", { htmlFor: "baf-description", text: "要过滤的内容描述" }),
       createUiElement("textarea", {
         id: "baf-description",
@@ -344,6 +353,7 @@
       toggle: root.querySelector("#baf-toggle"),
       monitorToggle: root.querySelector("#baf-monitor-toggle"),
       enabled: root.querySelector("#baf-enabled"),
+      autoMonitor: root.querySelector("#baf-auto-monitor"),
       description: root.querySelector("#baf-description"),
       provider: root.querySelector("#baf-provider"),
       model: root.querySelector("#baf-model"),
@@ -380,6 +390,7 @@
       if (root.classList.contains("baf-open")) syncPanel();
     });
     elements.monitorToggle.addEventListener("click", handleMonitoringToggle);
+    elements.autoMonitor.addEventListener("change", handleAutoMonitorCheckboxChange);
     elements.close.addEventListener("click", () => root.classList.remove("baf-open"));
     elements.provider.addEventListener("change", handleProviderChange);
     elements.save.addEventListener("click", handleSave);

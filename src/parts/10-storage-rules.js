@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | 默认暂停自动 AI 监视；保留用户已保存的开启状态
 
   function readStoredObject(key, fallback) {
     try {
@@ -63,7 +64,10 @@
     return {
       schemaVersion: SCHEMA_VERSION,
       enabled: source.enabled !== false,
-      monitoringPaused: source.monitoringPaused === true,
+      // 显式保存过的值优先；全新安装或缺省字段时默认暂停自动 AI。
+      monitoringPaused: Object.hasOwn(source, "monitoringPaused")
+        ? source.monitoringPaused === true
+        : DEFAULT_SETTINGS.monitoringPaused === true,
       description: typeof source.description === "string"
         ? source.description.trim().slice(0, 500)
         : "",

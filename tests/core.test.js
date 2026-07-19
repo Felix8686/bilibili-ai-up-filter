@@ -78,6 +78,15 @@ test("normalizes text and rejects unsupported providers", () => {
   assert.equal(settings.models.deepseek, "deepseek-v4-flash");
 });
 
+test("defaults automatic AI monitoring to paused for new settings", () => {
+  const fresh = api.normalizeSettings({});
+  assert.equal(fresh.monitoringPaused, true);
+  const explicitOn = api.normalizeSettings({ monitoringPaused: false });
+  assert.equal(explicitOn.monitoringPaused, false);
+  const explicitOff = api.normalizeSettings({ monitoringPaused: true });
+  assert.equal(explicitOff.monitoringPaused, true);
+});
+
 test("provides mainstream domestic and overseas API providers", () => {
   const providers = api.getProviderCatalog();
   assert.deepEqual(

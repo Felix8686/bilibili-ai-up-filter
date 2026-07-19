@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: grok-4.5 | 2026-07-19 | Shadow DOM 穿透查询与 YouTube 右键卡片识别
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 区分自动过滤与手动右键所需的频道信息完整度
 
   function startPageObserver() {

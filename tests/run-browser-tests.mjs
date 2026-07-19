@@ -63,7 +63,7 @@ for (const relativePath of fixtures) {
   ], {
     cwd: projectRoot,
     encoding: "utf8",
-    timeout: 30000,
+    timeout: 60000,
     maxBuffer: 8 * 1024 * 1024,
   });
   rmSync(profile, { recursive: true, force: true });

@@ -234,7 +234,7 @@
       window.__initialPause = {
         noAutomaticAi: evaluatedTitles.length === 0 && learningRequestCount === 0,
         localRuleStillWorks: document.querySelector("#local-black-card").classList.contains("baf-hidden"),
-        pausedLabelVisible: document.querySelector("#baf-toggle").textContent.includes("已暂停"),
+        pausedLabelVisible: /已暂停|监视关/.test(document.querySelector("#baf-toggle").textContent || ""),
         resumeIconVisible: document.querySelector("#baf-monitor-toggle").textContent === "▶",
         persisted: persisted.monitoringPaused === true
       };
