@@ -1,4 +1,22 @@
+  <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 添加 v0.7.0 正式发布记录 -->
   <h1>版本记录</h1>
+
+  <h2>v0.7.0（2026-07-19）</h2>
+  <p>修复 YouTube 首页启动故障，并完成以更低 token 消耗、更小网页开销和更安全本地规则为目标的一轮重构。</p>
+  <ul>
+    <li>移除设置界面的 <code>innerHTML</code> 写入，改用安全 DOM API，修复 YouTube Trusted Types 策略导致脚本启动中断的问题。</li>
+    <li>新增现代 YouTube <code>yt-lockup-view-model</code>、<code>ytd-rich-grid-media</code> 标题和频道信息适配。</li>
+    <li>MutationObserver 从整个网页收窄到 B 站或 YouTube 首页推荐区域；离开首页后断开观察器、隐藏界面并停止扫描。</li>
+    <li>使用 Navigation API、YouTube 导航事件和浏览器历史事件处理站内跳转，不再用永久定时轮询检查路径。</li>
+    <li>会话判断以规范化视频 ID 为唯一指纹；持久缓存绑定视频 ID 与过滤条件，不再因为同一视频标题更新而重复调用 AI。</li>
+    <li>AI 学习成功后保留现有页面判断，不再清空状态并重判整页；暂停和恢复也只取消未完成队列。</li>
+    <li>新增正则安全验证与预编译缓存，拒绝嵌套量词、重复分支、反向引用和连续无必选分隔的可变量词链。</li>
+    <li>用户输入危险或错误正则时不保存，并显示可以理解的错误原因。</li>
+    <li>源码拆分为 <code>src/parts</code> 下九个片段，由 <code>scripts/build-userscript.mjs</code> 生成可直接安装的单文件脚本。</li>
+    <li>新增无第三方依赖的一键测试入口和 GitHub Actions；测试增加到 31 项核心测试及 4 组 Chrome 集成场景。</li>
+    <li>新增与 YouTube 相同 Trusted Types 限制的回归页，并覆盖现代卡片、推荐区动态插入、视频 ID 去重和导航竞态。</li>
+    <li>实现模型 <code>gpt-5.6-sol</code> 与独立复审模型 <code>gpt-5.6-terra</code> 均已写入模型签名记录；最终复审未发现未关闭的 P1/P2。</li>
+  </ul>
 
   <h2>v0.6.0（2026-07-19）</h2>
   <p>新增 YouTube 首页标准视频推荐支持，并把原有 B 站专用提取逻辑整理为跨站适配层。</p>

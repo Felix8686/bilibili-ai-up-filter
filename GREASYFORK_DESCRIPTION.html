@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新仓库内 v0.7.0 发布介绍，不执行 Greasy Fork 手动操作 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -22,6 +23,8 @@
     <li>手动标记后，AI 可以分析标题特征并更新本地偏好画像。</li>
     <li>AI 可提炼候选标题规则，但必须由用户确认后才会启用。</li>
     <li>浮动暂停按钮可停止首页自动 AI 监视，本地规则和已有缓存仍继续生效。</li>
+    <li>只观察首页推荐区域，离开首页后停止卡片扫描和自动 AI 队列。</li>
+    <li>危险正则会被拒绝保存，避免复杂回溯造成网页卡顿。</li>
     <li>支持配置与黑白名单导入、导出；导出文件不包含 API Key 和 AI 判断缓存。</li>
     <li>API 失败时保持视频显示，不会因为网络或模型故障误隐藏内容。</li>
   </ul>
@@ -58,13 +61,13 @@
   <h2>当前范围</h2>
   <p>当前版本处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。YouTube 仅处理标准视频推荐，Shorts、广告和频道标识缺失的卡片会保守跳过；搜索页、订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
 
-  <h2>v0.6.0 更新</h2>
+  <h2>v0.7.0 更新</h2>
   <ul>
-    <li>新增 YouTube 首页标准视频推荐支持。</li>
-    <li>两站共用本地规则、AI 缓存、右键学习、创作者黑白名单和暂停监视。</li>
-    <li>新增带站点前缀的视频与频道标识，避免 B 站和 YouTube 数据冲突。</li>
-    <li>支持 YouTube 无限滚动和单页导航后的新卡片扫描。</li>
-    <li>旧版设置、学习样本、黑白名单和备份保持兼容。</li>
+    <li>修复 YouTube 安全策略导致脚本无法启动的问题，并支持现代首页卡片。</li>
+    <li>观察范围收窄到首页推荐区域，离开首页后停止自动扫描。</li>
+    <li>主动学习、暂停恢复和标题更新不再导致同一批视频重复消耗 AI token。</li>
+    <li>新增高风险正则拦截，避免错误规则导致网页卡死。</li>
+    <li>源码完成模块化拆分，并加入 GitHub 自动测试。</li>
   </ul>
 
   <p>项目源码与问题反馈：<a href="https://github.com/Felix8686/bilibili-ai-up-filter">GitHub - Felix8686/bilibili-ai-up-filter</a></p>

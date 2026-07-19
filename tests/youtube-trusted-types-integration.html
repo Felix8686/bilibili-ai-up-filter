@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 复现 YouTube Trusted Types 限制并验证现代首页卡片 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script'">
+  <title>YouTube Trusted Types 集成测试</title>
+</head>
+<body>
+  <ytd-browse page-subtype="home">
+    <ytd-rich-grid-renderer>
+      <div id="contents">
+        <yt-lockup-view-model id="modern-card" data-video-id="ytModern001">
+          <a class="yt-lockup-view-model__content-image" href="/watch?v=ytModern001"></a>
+          <a class="yt-lockup-metadata-view-model__title" href="/watch?v=ytModern001">现代卡片本地屏蔽测试</a>
+          <div class="yt-lockup-metadata-view-model__metadata">
+            <div class="yt-content-metadata-view-model__metadata-row">
+              <a href="/@modernchannel">Modern Channel</a>
+            </div>
+          </div>
+        </yt-lockup-view-model>
+      </div>
+    </ytd-rich-grid-renderer>
+  </ytd-browse>
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SITE__ = "youtube";
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+    window.__trustedTypeErrors = [];
+    window.addEventListener("error", (event) => {
+      window.__trustedTypeErrors.push(String(event.error || event.message || ""));
+    });
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: {} })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 3, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: ["本地屏蔽"],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => {
+      throw new Error("本测试不应调用 AI");
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      const details = {
+        uiCreated: Boolean(document.querySelector("#baf-root")),
+        modernCardHidden: document.querySelector("#modern-card").classList.contains("baf-hidden"),
+        platformVisible: document.querySelector("#baf-summary")?.textContent.includes("YouTube 首页"),
+        noTrustedTypesCrash: window.__trustedTypeErrors.length === 0
+      };
+      const result = document.querySelector("#baf-test-result");
+      result.textContent = Object.values(details).every(Boolean) ? "PASS" : "FAIL";
+      result.dataset.details = JSON.stringify(details);
+    }, 800);
+  </script>
+</body>
+</html>

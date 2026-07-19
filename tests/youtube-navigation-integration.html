@@ -1,15 +1,22 @@
 <!doctype html>
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 导航竞态测试使用真实 YouTube 推荐区结构 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <title>YouTube 导航竞态集成测试</title>
 </head>
 <body>
+  <ytd-browse page-subtype="home">
+  <ytd-rich-grid-renderer>
+  <div id="contents">
   <ytd-rich-item-renderer id="stale-card">
     <a id="thumbnail" href="/watch?v=ytStale0001"></a>
     <a id="video-title-link" href="/watch?v=ytStale0001" title="导航前的焦虑营销视频">导航前的焦虑营销视频</a>
     <ytd-channel-name><a href="/@stalechannel">Stale Channel</a></ytd-channel-name>
   </ytd-rich-item-renderer>
+  </div>
+  </ytd-rich-grid-renderer>
+  </ytd-browse>
   <div id="baf-test-result">PENDING</div>
 
   <script>

@@ -1,5 +1,7 @@
 "use strict";
 
+// AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 增加正则安全和性能回归测试
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -364,6 +366,41 @@ test("matches normalized keyword and regex title rules", () => {
   assert.equal(api.matchTitleRules("这是一个ＭＢＴＩ测试", ["mbti"]), "mbti");
   assert.equal(api.matchTitleRules("教你月入十万", ["/月入|日赚/"]), "/月入|日赚/");
   assert.equal(api.matchTitleRules("普通科普", ["/[invalid/"]), "");
+});
+
+test("rejects unsafe or malformed regular expressions before scanning cards", () => {
+  assert.equal(api.validateRegexRule("/(a+)+$/").valid, false);
+  assert.equal(api.validateRegexRule("/(a|aa)+$/").valid, false);
+  assert.equal(api.validateRegexRule("/(a|a?)+$/").valid, false);
+  assert.equal(api.validateRegexRule("/(?:(a+))+$/").valid, false);
+  assert.equal(api.validateRegexRule("/a*a*a*a*a*a*a*a*a*a*$/").valid, false);
+  assert.equal(api.validateRegexRule("/[a-z]*[A-Za-z]*\\w*\\p{L}*$/").valid, false);
+  assert.equal(api.validateRegexRule("/.*foo.*bar.*/").valid, false);
+  assert.equal(api.validateRegexRule("/[invalid/").valid, false);
+  assert.equal(api.validateRegexRule("/月入|日赚/").valid, true);
+  assert.equal(api.validateRegexRule("/(猫|狗)粮/").valid, true);
+  assert.equal(api.validateRegexRule("/\\d*-\\w*/").valid, true);
+  assert.equal(api.matchTitleRules("aaaa!", ["/(a+)+$/"]), "");
+});
+
+test("reuses a cached decision by stable video ID when criteria are unchanged", () => {
+  const entry = {
+    bvid: "yt:dQw4w9WgXcQ",
+    title: "旧标题",
+    uid: "yt:handle:creator",
+    criteriaKey: "criteria-1",
+  };
+  assert.equal(api.isCachedDecisionReusable(entry, {
+    bvid: "yt:dQw4w9WgXcQ",
+    title: "更新后的标题",
+    uid: "yt:handle:creator",
+  }, "criteria-1"), true);
+  assert.equal(api.isCachedDecisionReusable(entry, {
+    bvid: "yt:abcdefghijk",
+  }, "criteria-1"), false);
+  assert.equal(api.isCachedDecisionReusable(entry, {
+    bvid: "yt:dQw4w9WgXcQ",
+  }, "criteria-2"), false);
 });
 
 test("normalizes UP whitelist and local rule lists", () => {

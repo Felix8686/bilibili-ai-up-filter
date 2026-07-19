@@ -1,10 +1,15 @@
 <!doctype html>
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 验证视频编号去重与学习后不重判整页 -->
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 让 YouTube 测试实际经过生产推荐区选择器 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <title>YouTube 首页 AI 过滤集成测试</title>
 </head>
 <body>
+  <ytd-browse page-subtype="home">
+  <ytd-rich-grid-renderer>
+  <div id="contents">
   <ytd-rich-item-renderer id="local-rule-card">
     <a id="thumbnail" href="/watch?v=ytLocal0001"></a>
     <a id="video-title-link" href="/watch?v=ytLocal0001" title="本地屏蔽规则测试">本地屏蔽规则测试</a>
@@ -78,6 +83,10 @@
     <a id="thumbnail" href="/watch?v=ytMissing01"></a>
     <a id="video-title-link" href="/watch?v=ytMissing01" title="焦虑营销但频道标识缺失">焦虑营销但频道标识缺失</a>
   </ytd-rich-item-renderer>
+
+  </div>
+  </ytd-rich-grid-renderer>
+  </ytd-browse>
 
   <div id="baf-test-result">PENDING</div>
 
@@ -213,10 +222,10 @@
       replacement.id = "safe-card-reloaded";
       replacement.innerHTML = `
         <a id="thumbnail" href="/watch?v=ytSafe00001"></a>
-        <a id="video-title-link" href="/watch?v=ytSafe00001" title="正常科学纪录片">正常科学纪录片</a>
+        <a id="video-title-link" href="/watch?v=ytSafe00001" title="正常科学纪录片（标题更新）">正常科学纪录片（标题更新）</a>
         <ytd-channel-name><a href="/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw">Science Channel</a></ytd-channel-name>
       `;
-      document.body.appendChild(replacement);
+      document.querySelector("ytd-rich-grid-renderer #contents").appendChild(replacement);
 
       const dynamic = document.createElement("ytd-rich-item-renderer");
       dynamic.id = "dynamic-card";
@@ -225,7 +234,7 @@
         <a id="video-title-link" href="/watch?v=ytDynamic01" title="动态加载的焦虑营销视频">动态加载的焦虑营销视频</a>
         <ytd-channel-name><a href="/@dynamicchannel">Dynamic Channel</a></ytd-channel-name>
       `;
-      document.body.appendChild(dynamic);
+      document.querySelector("ytd-rich-grid-renderer #contents").appendChild(dynamic);
       document.dispatchEvent(new Event("yt-navigate-finish"));
     }, 1500);
 
@@ -266,6 +275,7 @@
         dynamicHidden: window.__beforePause?.dynamicHidden,
         cachePersisted: Boolean(savedCache.entries["yt:ytSafe00001"]),
         cacheReused: safeEvaluationCount === window.__safeEvaluationBeforeReplacement,
+        stableVideoIdAvoidedRepeat: !evaluatedTitles.includes("正常科学纪录片（标题更新）"),
         aiMatchCache: savedCache.entries["yt:ytMatch0001"]?.match === true,
         dynamicCache: savedCache.entries["yt:ytDynamic01"]?.match === true,
         adIgnored: !document.querySelector("#ad-card").classList.contains("baf-hidden")

@@ -1,0 +1,21 @@
+# AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 在 GitHub 自动运行用户脚本完整回归测试
+name: Test userscript
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run syntax, core and browser tests
+        run: node tests/run-all.mjs
