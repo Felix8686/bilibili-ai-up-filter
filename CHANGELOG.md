@@ -1,5 +1,26 @@
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 添加 v0.7.0 正式发布记录 -->
+  <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 添加 v0.7.1 YouTube 右键菜单修复记录 -->
   <h1>版本记录</h1>
+
+  <h2>v0.7.2（2026-07-19）</h2>
+  <p>修复 YouTube Polymer/Shadow DOM 首页卡片右键无法弹出屏蔽菜单的问题。</p>
+  <ul>
+    <li>右键与卡片查找改为可穿越 Shadow DOM 的 <code>closestAcrossShadow</code>。</li>
+    <li>标题、频道、视频链接查询改为 <code>deepQuerySelector(All)</code>，兼容缩略图/悬停层在 shadow 内的结构。</li>
+    <li>右键命中后增加 <code>stopImmediatePropagation</code>，降低被 YouTube 自身菜单抢先处理的概率。</li>
+    <li>新增 Shadow DOM 右键回归测试。</li>
+  </ul>
+
+  <h2>v0.7.1（2026-07-19）</h2>
+  <p>修复 YouTube 当前实验版首页卡片无法弹出脚本右键菜单的问题，并为频道信息延迟加载增加安全回退。</p>
+  <ul>
+    <li>视频链接识别增加 class 形式的 <code>yt-lockup-view-model</code> 和通用首页 <code>/watch?v=</code> 链接。</li>
+    <li>卡片、标题和频道选择器新增 <code>yt-lockup-*-wiz</code> 实验类名，并补充通用 <code>/@handle</code> 频道链接。</li>
+    <li>YouTube 推荐区新增 <code>#primary</code> 和首页 <code>ytd-browse</code> 保守回退，仍不会在非首页启动扫描。</li>
+    <li>右键手动操作不再强制要求频道标识；只要视频 ID 和标题有效，就能手动隐藏并加入学习样本。</li>
+    <li>频道信息缺失时，创作者拉黑与白名单按钮保持禁用，自动 AI 队列也继续跳过该卡片。</li>
+    <li>Trusted Types 浏览器集成测试新增 class 卡片、<code>-wiz</code> 元数据、视频覆盖层右键及频道缺失回退场景。</li>
+  </ul>
 
   <h2>v0.7.0（2026-07-19）</h2>
   <p>修复 YouTube 首页启动故障，并完成以更低 token 消耗、更小网页开销和更安全本地规则为目标的一轮重构。</p>

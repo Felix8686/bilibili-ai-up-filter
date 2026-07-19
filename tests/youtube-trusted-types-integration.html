@@ -1,5 +1,6 @@
 <!doctype html>
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 复现 YouTube Trusted Types 限制并验证现代首页卡片 -->
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 覆盖 wiz 类名与频道信息缺失时的右键菜单 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -19,6 +20,23 @@
             </div>
           </div>
         </yt-lockup-view-model>
+        <div class="yt-lockup-view-model yt-lockup-view-model--vertical" id="wiz-card" data-video-id="ytWizCard01">
+          <a class="yt-lockup-view-model__content-image" href="/watch?v=ytWizCard01">
+            <span class="thumbnail-overlay"></span>
+          </a>
+          <a class="yt-lockup-metadata-view-model-wiz__title" href="/watch?v=ytWizCard01">新版卡片本地屏蔽测试</a>
+          <div class="yt-lockup-metadata-view-model-wiz__metadata">
+            <div class="yt-content-metadata-view-model-wiz__metadata-row">
+              <a class="yt-core-attributed-string__link" href="/@wizchannel">Wiz Channel</a>
+            </div>
+          </div>
+        </div>
+        <div class="yt-lockup-view-model yt-lockup-view-model--vertical" id="missing-creator-manual-card" data-video-id="ytManualR01">
+          <a class="yt-lockup-view-model__content-image" href="/watch?v=ytManualR01">
+            <video id="missing-creator-video"></video>
+          </a>
+          <a class="yt-lockup-metadata-view-model-wiz__title" href="/watch?v=ytManualR01">频道信息尚未加载的手动样本</a>
+        </div>
       </div>
     </ytd-rich-grid-renderer>
   </ytd-browse>
@@ -73,9 +91,29 @@
   <script src="../bilibili-ai-up-filter.user.js"></script>
   <script>
     setTimeout(() => {
+      document.querySelector("#missing-creator-video").dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 60,
+        clientY: 60
+      }));
+      window.__missingCreatorContextState = {
+        menuVisible: document.querySelector("#baf-context-menu")?.classList.contains("baf-visible"),
+        dislikeEnabled: document.querySelector("#baf-dislike")?.disabled === false,
+        creatorActionsDisabled: document.querySelector("#baf-block-up")?.disabled === true
+          && document.querySelector("#baf-allow-up")?.disabled === true
+      };
+      document.querySelector("#baf-dislike")?.click();
+    }, 350);
+
+    setTimeout(() => {
       const details = {
         uiCreated: Boolean(document.querySelector("#baf-root")),
         modernCardHidden: document.querySelector("#modern-card").classList.contains("baf-hidden"),
+        wizCardHidden: document.querySelector("#wiz-card").classList.contains("baf-hidden"),
+        missingCreatorContextMenu: Object.values(window.__missingCreatorContextState || {}).every(Boolean),
+        missingCreatorManuallyHidden: document.querySelector("#missing-creator-manual-card").classList.contains("baf-hidden"),
         platformVisible: document.querySelector("#baf-summary")?.textContent.includes("YouTube 首页"),
         noTrustedTypesCrash: window.__trustedTypeErrors.length === 0
       };

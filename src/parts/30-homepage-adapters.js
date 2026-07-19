@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 区分自动过滤与手动右键所需的频道信息完整度
 
   function startPageObserver() {
     const handleNavigation = () => window.setTimeout(syncHomepageRuntime, 0);
@@ -281,7 +282,7 @@
     const searchRoot = root instanceof Element || root instanceof Document ? root : document;
     const candidates = [];
     const seenCards = new Set();
-    searchRoot.querySelectorAll(site.videoIdSourceSelector).forEach((source) => {
+    deepQuerySelectorAll(searchRoot, site.videoIdSourceSelector).forEach((source) => {
       if (!(source instanceof Element) || ui.root.contains(source)) return;
       const link = source instanceof HTMLAnchorElement && source.matches(site.videoLinkSelector)
         ? source
@@ -296,15 +297,23 @@
     return candidates;
   }
 
-  function buildCandidate(card, link, site = getActiveSiteConfig()) {
-    if (!site) return null;
+  function buildCandidate(card, link, site = getActiveSiteConfig(), options = {}) {
+    if (!site || !(card instanceof Element)) return null;
     if (isExcludedCard(card, link, site)) return null;
-    const bvid = getVideoId(card, link, site);
+    const bvid = options.forcedVideoId || getVideoId(card, link, site);
     if (!bvid) return null;
-    const title = getVideoTitle(card, link, site);
+    let title = getVideoTitle(card, link, site);
+    if (!title || title.length < 2) {
+      title = normalizeText(
+        link?.getAttribute?.("aria-label")
+        || link?.getAttribute?.("title")
+        || card?.getAttribute?.("aria-label")
+        || ""
+      );
+    }
     if (!title || title.length < 2) return null;
     const author = getAuthor(card, site);
-    if (site.id === "youtube" && !author.uid) return null;
+    if (site.id === "youtube" && !author.uid && !options.allowMissingCreator) return null;
     return {
       fingerprint: bvid,
       site: site.id,
@@ -320,9 +329,9 @@
     if (!(card instanceof Element) || site?.id !== "youtube") return false;
     const href = String(link?.getAttribute?.("href") || link?.href || "");
     if (/\/shorts\//i.test(href)) return true;
-    if (card.closest("ytd-rich-section-renderer")) return true;
+    if (closestAcrossShadow(card, "ytd-rich-section-renderer")) return true;
     if (card.hasAttribute("is-ad")) return true;
-    return Boolean(card.querySelector([
+    return Boolean(deepQuerySelector(card, [
       "ytd-ad-slot-renderer",
       "ytd-in-feed-ad-layout-renderer",
       "ytd-display-ad-renderer",
@@ -330,10 +339,92 @@
     ].join(", ")));
   }
 
+  function closestAcrossShadow(start, selector) {
+    let current = start instanceof Element ? start : null;
+    while (current) {
+      try {
+        if (current.matches(selector)) return current;
+      } catch {
+        // invalid selector for this node
+      }
+      if (current.parentElement) {
+        current = current.parentElement;
+        continue;
+      }
+      const root = current.getRootNode?.();
+      current = root instanceof ShadowRoot ? root.host : null;
+    }
+    return null;
+  }
+
+  function enqueueShadowRoots(node, queue) {
+    if (node instanceof Element && node.shadowRoot) queue.push(node.shadowRoot);
+    if (typeof node.querySelectorAll !== "function") return;
+    node.querySelectorAll("*").forEach((element) => {
+      if (element.shadowRoot) queue.push(element.shadowRoot);
+    });
+  }
+
+  function deepQuerySelector(root, selector) {
+    if (!root || !selector) return null;
+    const queue = [root];
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current) continue;
+      if (current instanceof ShadowRoot) {
+        try {
+          const foundInRoot = current.querySelector(selector);
+          if (foundInRoot) return foundInRoot;
+        } catch {
+          // ignore
+        }
+        enqueueShadowRoots(current, queue);
+        continue;
+      }
+      if (typeof current.querySelector === "function") {
+        try {
+          const found = current.querySelector(selector);
+          if (found) return found;
+        } catch {
+          // ignore invalid selector slices
+        }
+      }
+      // Element.querySelector 不会进入自身 shadowRoot，必须单独入队
+      enqueueShadowRoots(current, queue);
+    }
+    return null;
+  }
+
+  function deepQuerySelectorAll(root, selector) {
+    const results = [];
+    if (!root || !selector) return results;
+    const queue = [root];
+    const seen = new Set();
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current) continue;
+      if (typeof current.querySelectorAll === "function") {
+        try {
+          current.querySelectorAll(selector).forEach((node) => {
+            if (!seen.has(node)) {
+              seen.add(node);
+              results.push(node);
+            }
+          });
+        } catch {
+          // ignore
+        }
+      }
+      enqueueShadowRoots(current, queue);
+    }
+    return results;
+  }
+
   function findVideoLink(root, site = getActiveSiteConfig()) {
     if (!(root instanceof Element) || !site) return null;
     if (root instanceof HTMLAnchorElement && root.matches(site.videoLinkSelector)) return root;
-    return root.querySelector(site.videoLinkSelector);
+    return deepQuerySelector(root, site.videoLinkSelector)
+      || root.querySelector(site.videoLinkSelector);
   }
 
   function getVideoId(card, link, site = getActiveSiteConfig()) {
@@ -342,7 +433,7 @@
     if (link instanceof Element) sources.push(link);
     if (card instanceof Element) {
       sources.push(card);
-      card.querySelectorAll(site.videoIdSourceSelector).forEach((source) => sources.push(source));
+      deepQuerySelectorAll(card, site.videoIdSourceSelector).forEach((source) => sources.push(source));
     }
 
     for (const source of sources) {
@@ -383,7 +474,7 @@
   function findCard(link, site = getActiveSiteConfig()) {
     if (!(link instanceof Element) || !site) return null;
     for (const selector of site.cardSelectors) {
-      const card = link.closest(selector);
+      const card = closestAcrossShadow(link, selector);
       if (!card || card === document.body || card === document.documentElement) continue;
       const rect = card.getBoundingClientRect();
       if (rect.width > window.innerWidth * 0.97 && rect.height > window.innerHeight * 0.5) {
@@ -397,12 +488,12 @@
   function getVideoTitle(card, originalLink, site = getActiveSiteConfig()) {
     if (!site) return "";
     for (const selector of site.titleSelectors) {
-      const node = card.querySelector(selector);
+      const node = deepQuerySelector(card, selector) || card.querySelector(selector);
       const title = getNodeText(node);
       if (title && title.length >= 2) return title;
     }
 
-    const links = card.querySelectorAll(site.videoLinkSelector);
+    const links = deepQuerySelectorAll(card, site.videoLinkSelector);
     for (const link of links) {
       const title = getNodeText(link);
       if (title && title.length >= 2) return title;
@@ -441,7 +532,7 @@
     let creatorLink = null;
     let name = "";
     for (const selector of site.authorSelectors) {
-      const node = card.querySelector(selector);
+      const node = deepQuerySelector(card, selector) || card.querySelector(selector);
       if (!node) continue;
       name = getNodeText(node);
       if (node instanceof HTMLAnchorElement) creatorLink = node;

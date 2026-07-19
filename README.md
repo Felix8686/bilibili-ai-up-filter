@@ -1,7 +1,9 @@
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.0 使用说明与发布记录 -->
+  <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.1 YouTube 右键菜单修复说明 -->
+  <!-- AI-Model-Signature: grok | 2026-07-19 | 更新 v0.7.2 Shadow DOM 右键修复说明 -->
   <h1>B站 / YouTube 首页 AI 视频过滤器</h1>
 
-  <p>当前版本：<strong>v0.7.0</strong></p>
+  <p>当前版本：<strong>v0.7.2</strong></p>
   <p>作者：<strong>Felix8686</strong></p>
 
   <p>这是一个 Tampermonkey 用户脚本。它会先用本地白名单、黑名单、标题关键词和正则规则判断 B 站及 YouTube 首页推荐；只有本地规则无法确定且没有可用缓存的视频，才会批量交给用户配置的 AI 接口进行语义判断。AI 命中只隐藏当前视频，不会自动永久拉黑整个创作者；同一创作者多次高置信度命中后，脚本会提示用户自行确认是否拉黑。</p>
@@ -15,7 +17,7 @@
     <li>支持本地标题黑白名单，规则可以是普通关键词或 <code>/正则表达式/</code>。</li>
     <li>只观察首页推荐区域；离开首页后停止卡片扫描和 AI 队列。</li>
     <li>会拒绝可能造成网页卡顿的高风险正则表达式，并在保存时说明原因。</li>
-    <li>YouTube Shorts、广告、频道标识缺失的卡片会保守跳过，不进入 AI 队列。</li>
+    <li>YouTube Shorts 和广告会跳过；频道标识缺失的卡片不进入自动 AI 队列，但在视频 ID 与标题可用时仍可右键手动隐藏和学习。</li>
     <li>不处理搜索页、排行榜、订阅页、视频播放页、B站 App 或观看历史。</li>
     <li>判断失败时保持视频显示，不会因为 API 故障自动拉黑。</li>
   </ul>
@@ -126,6 +128,20 @@
   <p>只有本地规则和缓存无法判断时，AI 判断才会把过滤描述、偏好画像、近期不喜欢样本的视频标题，以及待判断视频的标题和页面显示的创作者名称发送给所选 API 服务商。主动学习会发送当前手动不喜欢样本的标题和创作者名称。脚本不会主动发送 B 站或 YouTube Cookie、账号资料、频道标识或页面正文。API Key 仅存放在当前 Tampermonkey 脚本存储中，但浏览器本地存储不等同于系统级密码保险箱。</p>
 
   <h2>简要更新日志</h2>
+  <h3>v0.7.2（2026-07-19）</h3>
+  <ul>
+    <li>修复 YouTube Polymer / Shadow DOM 首页卡片右键无法弹出脚本屏蔽菜单的问题。</li>
+    <li>右键与卡片查找改为可穿越 Shadow DOM 的路径解析；标题、频道、视频链接支持 shadow 内查询。</li>
+    <li>右键命中后增加 <code>stopImmediatePropagation</code>，降低被 YouTube 原生菜单抢先处理的概率。</li>
+    <li>新增 Shadow DOM 右键浏览器集成测试；当前共 31 项核心测试及 5 组浏览器集成测试。</li>
+  </ul>
+  <h3>v0.7.1（2026-07-19）</h3>
+  <ul>
+    <li>修复 YouTube 新版实验卡片右键只显示浏览器原生菜单的问题。</li>
+    <li>兼容 <code>yt-lockup-view-model</code> 的 class 形式及带 <code>-wiz</code> 的标题、频道元数据类名。</li>
+    <li>频道标识尚未加载时仍允许右键“手动不喜欢”，同时安全禁用创作者拉黑和白名单操作。</li>
+    <li>扩大 YouTube 首页推荐区的保守回退范围，并补充新版卡片及右键菜单浏览器测试。</li>
+  </ul>
   <h3>v0.7.0（2026-07-19）</h3>
   <ul>
     <li>修复 YouTube Trusted Types 安全策略导致脚本在创建界面时中断的问题。</li>
@@ -135,7 +151,7 @@
     <li>会话和持久缓存以稳定视频 ID 为主，在过滤条件不变时不因标题更新重复调用 AI。</li>
     <li>新增保守正则安全检查，拒绝可能造成灾难性回溯和网页卡死的规则。</li>
     <li>源码拆分为九个可组合片段，同时继续生成一个可直接安装的用户脚本。</li>
-    <li>新增一键完整测试和 GitHub Actions，当前包含 31 项核心测试及 4 组浏览器集成测试。</li>
+    <li>新增一键完整测试和 GitHub Actions，当前包含 31 项核心测试及多组浏览器集成测试。</li>
   </ul>
   <h3>v0.6.0（2026-07-19）</h3>
   <ul>
@@ -205,7 +221,7 @@
   <p>在本目录运行以下命令：</p>
   <pre><code>node --check bilibili-ai-up-filter.user.js
 node --test tests/core.test.js</code></pre>
-  <p>浏览器集成回归位于 <code>tests/homepage-integration.html</code>、<code>tests/youtube-homepage-integration.html</code> 和 <code>tests/youtube-navigation-integration.html</code>；使用 Chrome 或 Edge 打开后，页面结果应显示 <strong>PASS</strong>。</p>
+  <p>浏览器集成回归位于 <code>tests/homepage-integration.html</code>、<code>tests/youtube-homepage-integration.html</code>、<code>tests/youtube-navigation-integration.html</code>、<code>tests/youtube-trusted-types-integration.html</code> 和 <code>tests/youtube-shadow-contextmenu-integration.html</code>；也可运行 <code>node tests/run-all.mjs</code>。使用 Chrome 或 Edge 打开 HTML 后，页面结果应显示 <strong>PASS</strong>。</p>
 
   <h2>项目文档</h2>
   <ul>

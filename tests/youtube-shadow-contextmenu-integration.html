@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>YouTube Shadow DOM 右键菜单集成测试</title>
+</head>
+<body>
+  <ytd-browse page-subtype="home">
+    <ytd-rich-grid-renderer>
+      <div id="contents"></div>
+    </ytd-rich-grid-renderer>
+  </ytd-browse>
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SITE__ = "youtube";
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: {} })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 3, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => {
+      throw new Error("本测试不应调用 AI");
+    };
+
+    // 模拟 YouTube Polymer：卡片外壳在 light DOM，缩略图与标题在 shadow 内。
+    const host = document.createElement("ytd-rich-item-renderer");
+    host.id = "shadow-card";
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <a id="thumbnail" href="/watch?v=ytShadow001" aria-label="Shadow 右键测试视频">
+        <div class="hover-overlay" id="shadow-overlay" style="width:120px;height:80px;"></div>
+      </a>
+      <a id="video-title-link" href="/watch?v=ytShadow001" title="Shadow 右键测试视频">Shadow 右键测试视频</a>
+      <ytd-channel-name><a href="/@shadowchannel">Shadow Channel</a></ytd-channel-name>
+    `;
+    document.querySelector("#contents").appendChild(host);
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      const overlay = document.querySelector("#shadow-card").shadowRoot.querySelector("#shadow-overlay");
+      overlay.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 40,
+        clientY: 40
+      }));
+      const menu = document.querySelector("#baf-context-menu");
+      const details = {
+        menuVisible: menu?.classList.contains("baf-visible") === true,
+        dislikeEnabled: document.querySelector("#baf-dislike")?.disabled === false,
+        blockEnabled: document.querySelector("#baf-block-up")?.disabled === false
+      };
+      if (details.menuVisible) document.querySelector("#baf-dislike")?.click();
+      setTimeout(() => {
+        details.cardHidden = document.querySelector("#shadow-card")?.classList.contains("baf-hidden") === true;
+        const result = document.querySelector("#baf-test-result");
+        result.textContent = Object.values(details).every(Boolean) ? "PASS" : "FAIL";
+        result.dataset.details = JSON.stringify(details);
+      }, 200);
+    }, 400);
+  </script>
+</body>
+</html>

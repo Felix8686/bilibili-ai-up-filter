@@ -1,5 +1,7 @@
 <!doctype html>
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新仓库内 v0.7.0 发布介绍，不执行 Greasy Fork 手动操作 -->
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新仓库内 v0.7.1 YouTube 右键菜单修复介绍 -->
+<!-- AI-Model-Signature: grok | 2026-07-19 | 更新仓库内 v0.7.2 Shadow DOM 右键修复介绍 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -59,15 +61,15 @@
   <p>API Key 仅保存在当前 Tampermonkey 脚本的本地存储中，不会写入导出文件。请注意，浏览器本地存储不等同于系统级密码保险箱，请使用单独创建、额度受控的 API Key。</p>
 
   <h2>当前范围</h2>
-  <p>当前版本处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。YouTube 仅处理标准视频推荐，Shorts、广告和频道标识缺失的卡片会保守跳过；搜索页、订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
+  <p>当前版本处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。YouTube 仅处理标准视频推荐；Shorts 与广告会跳过。频道标识缺失的卡片不进入自动 AI 队列，但在视频 ID 与标题可用时可右键手动隐藏。搜索页、订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
 
-  <h2>v0.7.0 更新</h2>
+  <h2>v0.7.2 更新</h2>
   <ul>
-    <li>修复 YouTube 安全策略导致脚本无法启动的问题，并支持现代首页卡片。</li>
-    <li>观察范围收窄到首页推荐区域，离开首页后停止自动扫描。</li>
-    <li>主动学习、暂停恢复和标题更新不再导致同一批视频重复消耗 AI token。</li>
-    <li>新增高风险正则拦截，避免错误规则导致网页卡死。</li>
-    <li>源码完成模块化拆分，并加入 GitHub 自动测试。</li>
+    <li>修复 YouTube Polymer / Shadow DOM 首页卡片右键无法弹出脚本屏蔽菜单的问题。</li>
+    <li>右键与卡片查找可穿越 Shadow DOM；标题、频道、视频链接支持 shadow 内查询。</li>
+    <li>降低被 YouTube 原生右键菜单抢先处理的概率。</li>
+    <li>兼容 class 形式的现代卡片和带 <code>-wiz</code> 的标题、频道信息结构（含 v0.7.1）。</li>
+    <li>频道信息暂未加载时仍可手动隐藏和学习当前视频，创作者操作会安全禁用（含 v0.7.1）。</li>
   </ul>
 
   <p>项目源码与问题反馈：<a href="https://github.com/Felix8686/bilibili-ai-up-filter">GitHub - Felix8686/bilibili-ai-up-filter</a></p>

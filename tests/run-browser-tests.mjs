@@ -12,6 +12,7 @@ const fixtures = [
   "tests/youtube-homepage-integration.html",
   "tests/youtube-navigation-integration.html",
   "tests/youtube-trusted-types-integration.html",
+  "tests/youtube-shadow-contextmenu-integration.html",
 ];
 
 function findChrome() {

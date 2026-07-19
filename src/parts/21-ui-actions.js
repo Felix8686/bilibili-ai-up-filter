@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
+// AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 允许频道标识未加载时手动隐藏当前 YouTube 视频
 
   function registerMenuCommand() {
     GM_registerMenuCommand("打开首页 AI 视频过滤设置", () => {
@@ -14,6 +15,9 @@
 
       event.preventDefault();
       event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
       showVideoContextMenu(candidate, event.clientX, event.clientY);
     }, true);
     document.addEventListener("pointerdown", (event) => {
@@ -52,19 +56,35 @@
   function getCandidateFromTarget(target) {
     const site = getActiveSiteConfig();
     if (!site) return null;
-    let link = target.closest(site.videoLinkSelector);
+    // YouTube Polymer 卡片大量使用 Shadow DOM：普通 closest 无法越过 shadow 边界。
+    let link = closestAcrossShadow(target, site.videoLinkSelector);
     let card = link ? findCard(link, site) : null;
 
     if (!card) {
       for (const selector of site.cardSelectors) {
-        card = target.closest(selector);
+        card = closestAcrossShadow(target, selector);
         if (card && card !== document.body && card !== document.documentElement) break;
         card = null;
       }
       link = card ? findVideoLink(card, site) : null;
     }
 
-    return card ? buildCandidate(card, link, site) : null;
+    if (!card && site.id === "youtube") {
+      const videoId = extractVideoIdFromElement(target, site)
+        || extractYouTubeVideoId(target.getAttribute?.("href") || "");
+      if (videoId) {
+        const hostCard = closestAcrossShadow(
+          target,
+          site.cardSelectors.join(", ")
+        ) || target;
+        return buildCandidate(hostCard, link || target, site, {
+          allowMissingCreator: true,
+          forcedVideoId: videoId,
+        });
+      }
+    }
+
+    return card ? buildCandidate(card, link, site, { allowMissingCreator: true }) : null;
   }
 
   function showVideoContextMenu(candidate, clientX, clientY) {
