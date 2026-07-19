@@ -6,7 +6,7 @@
 
 <h2>版本发布完成标准</h2>
 
-<p>除非用户明确要求仅保留本地改动，否则新版本只有在 GitHub 与 Greasy Fork 均完成更新并验证版本一致后，才算发布完成。不得只提交本地改动，也不得只推送 GitHub 后结束任务。</p>
+<p>除非用户明确要求仅保留本地改动，否则新版本在完成测试、版本与文档更新、提交和标签，并将主分支及版本标签推送到 GitHub 后，即视为发布完成。Greasy Fork 已配置从 GitHub Raw 自动同步，默认不再进行手动更新或逐次在线核验，以减少不必要的操作和 token 消耗。</p>
 
 <ol>
   <li>运行 JavaScript 语法检查、核心测试和适用的回归测试。</li>
@@ -14,10 +14,12 @@
   <li>同步更新 <code>README.md</code>、<code>CHANGELOG.md</code> 和 <code>GREASYFORK_DESCRIPTION.html</code>。</li>
   <li>检查差异，创建 Conventional Commits 风格的提交和对应版本标签。</li>
   <li>将主分支及版本标签推送到 GitHub。</li>
-  <li>将同一版本的脚本代码同步到 Greasy Fork。</li>
-  <li>如功能说明发生变化，同步更新 Greasy Fork 的“附加信息”。</li>
-  <li>打开两个发布页面，确认版本号、代码和更新说明一致。</li>
+  <li>核验 GitHub 主分支、标签和 Raw 脚本中的版本号一致。</li>
 </ol>
+
+<h2>Greasy Fork 自动同步策略</h2>
+
+<p>Greasy Fork 默认依靠现有的 GitHub Raw 源码同步配置获取新版本。除非用户明确要求、Greasy Fork 报告同步失败，或用户反馈线上版本长期未更新，否则代理不得为了常规发布而登录 Greasy Fork、手动触发同步或反复轮询其页面。</p>
 
 <h2>发布地址</h2>
 
