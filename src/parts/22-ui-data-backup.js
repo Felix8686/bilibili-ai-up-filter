@@ -126,18 +126,59 @@
       return;
     }
 
-    samples.slice(0, 12).forEach((sample) => {
+    samples.forEach((sample) => {
       const row = document.createElement("div");
-      row.className = "baf-learning-item";
+      row.className = "baf-learning-item baf-entry";
+      const info = document.createElement("div");
       const title = document.createElement("strong");
       title.textContent = sample.title;
       const status = document.createElement("small");
       status.textContent = sample.analyzedAt
         ? `已分析：${sample.analysis || sample.traits.join("、") || "已纳入偏好画像"}`
         : "等待 AI 分析";
-      row.append(title, status);
+      info.append(title, status);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "baf-delete";
+      remove.textContent = "撤销";
+      remove.addEventListener("click", () => removeLearningSample(sample.bvid));
+      row.append(info, remove);
       ui.learningList.appendChild(row);
     });
+  }
+
+  function removeLearningSample(bvid) {
+    const sample = learning.samples[bvid];
+    if (!sample) return false;
+    if (!window.confirm(`撤销对“${sample.title}”的不喜欢标记？\n该视频将重新显示，偏好画像会根据剩余样本重建。`)) {
+      return false;
+    }
+
+    learningRevision += 1;
+    const updated = removeLearningSampleData(
+      learning,
+      aiCache,
+      bvid,
+      new Date().toISOString()
+    );
+    learning = updated.learning;
+    aiCache = updated.aiCache;
+    sessionLearningAttempts.delete(bvid);
+    saveLearning();
+    saveAiCache();
+    resetSessionJudgments();
+    renderLearning();
+    renderUpSuggestions();
+    updateToggle();
+    setStatus(
+      learning.learnedProfile
+        ? `已撤销“${sample.title}”，并根据剩余样本重建偏好画像`
+        : `已撤销“${sample.title}”；当前已无可用的偏好画像`,
+      "ok"
+    );
+    scheduleScan(0);
+    if (!settings.monitoringPaused) processPendingLearning();
+    return true;
   }
 
   function removeBlacklistEntry(uid) {
@@ -259,6 +300,7 @@
     try {
       const parsed = JSON.parse(await file.text());
       const imported = validateBackup(parsed);
+      learningRevision += 1;
       settings = imported.settings;
 
       imported.blacklist.forEach((entry) => {

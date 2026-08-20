@@ -67,6 +67,7 @@
   <script>
     window.__BAF_FORCE_HOMEPAGE__ = true;
     window.__BAF_FORCE_FEED_ROOT__ = true;
+    window.confirm = () => true;
     const store = new Map([
       ["baf.settings.v1", JSON.stringify({
         schemaVersion: 1,

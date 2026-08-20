@@ -371,6 +371,94 @@ test("normalizes YouTube learning samples and creator rules without changing Bil
   );
 });
 
+test("rebuilds a learned profile from only the remaining analyzed samples", () => {
+  const profile = api.rebuildLearnedProfileFromSamples({
+    learnedProfile: "旧画像仍包含已删除样本",
+    samples: {
+      keep: {
+        bvid: "BV1Keep0002",
+        title: "应保留的样本",
+        addedAt: "2026-08-20T01:00:00.000Z",
+        analysis: "保留样本分析",
+        traits: ["保留特征", "共享特征"],
+        analyzedAt: "2026-08-20T01:01:00.000Z",
+      },
+      duplicate: {
+        bvid: "BV1Keep0003",
+        title: "另一个保留样本",
+        addedAt: "2026-08-20T00:00:00.000Z",
+        analysis: "保留样本分析",
+        traits: ["共享特征"],
+        analyzedAt: "2026-08-20T00:01:00.000Z",
+      },
+    },
+  });
+  assert.match(profile, /保留特征/);
+  assert.match(profile, /共享特征/);
+  assert.match(profile, /保留样本分析/);
+  assert.doesNotMatch(profile, /已删除样本/);
+  assert.equal((profile.match(/共享特征/g) || []).length, 1);
+  assert.equal(api.rebuildLearnedProfileFromSamples({ samples: {} }), "");
+});
+
+test("removes one learning sample, its cache entry, and rebuilds derived state", () => {
+  const result = api.removeLearningSampleData(
+    {
+      learnedProfile: "旧画像包含撤销特征",
+      updatedAt: "2026-08-20T01:00:00.000Z",
+      samples: {
+        undo: {
+          bvid: "BV1Undo0001",
+          title: "撤销样本",
+          addedAt: "2026-08-20T02:00:00.000Z",
+          analysis: "撤销样本分析",
+          traits: ["撤销特征"],
+          analyzedAt: "2026-08-20T02:01:00.000Z",
+        },
+        keep: {
+          bvid: "BV1Keep0002",
+          title: "保留样本",
+          addedAt: "2026-08-20T01:00:00.000Z",
+          analysis: "保留样本分析",
+          traits: ["保留特征"],
+          analyzedAt: "2026-08-20T01:01:00.000Z",
+        },
+      },
+    },
+    {
+      entries: {
+        undo: {
+          bvid: "BV1Undo0001",
+          title: "撤销样本",
+          match: true,
+          confidence: 0.99,
+          criteriaKey: "old",
+          judgedAt: "2026-08-20T02:02:00.000Z",
+        },
+        other: {
+          bvid: "BV1Other003",
+          title: "无关缓存",
+          match: false,
+          confidence: 0.1,
+          criteriaKey: "other",
+          judgedAt: "2026-08-20T00:00:00.000Z",
+        },
+      },
+    },
+    "BV1Undo0001",
+    "2026-08-20T03:00:00.000Z"
+  );
+
+  assert.equal(result.removedSample.bvid, "BV1Undo0001");
+  assert.equal(Boolean(result.learning.samples.BV1Undo0001), false);
+  assert.equal(Boolean(result.learning.samples.BV1Keep0002), true);
+  assert.match(result.learning.learnedProfile, /保留特征/);
+  assert.doesNotMatch(result.learning.learnedProfile, /撤销特征/);
+  assert.equal(result.learning.updatedAt, "2026-08-20T03:00:00.000Z");
+  assert.equal(Boolean(result.aiCache.entries.BV1Undo0001), false);
+  assert.equal(Boolean(result.aiCache.entries.BV1Other003), true);
+});
+
 test("matches normalized keyword and regex title rules", () => {
   assert.equal(api.matchTitleRules("这是一个ＭＢＴＩ测试", ["mbti"]), "mbti");
   assert.equal(api.matchTitleRules("教你月入十万", ["/月入|日赚/"]), "/月入|日赚/");

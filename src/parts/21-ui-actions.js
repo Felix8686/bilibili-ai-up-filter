@@ -93,9 +93,9 @@
     contextCandidate = candidate;
     const alreadyAdded = Boolean(learning.samples[candidate.bvid]);
     ui.dislike.textContent = alreadyAdded
-      ? "该视频已在不喜欢样本中"
+      ? "撤销不喜欢 · 重新显示此视频"
       : "不喜欢此视频 · 隐藏并让 AI 学习";
-    ui.dislike.disabled = alreadyAdded;
+    ui.dislike.disabled = false;
     const isBlacklisted = Boolean(candidate.uid && blacklist.entries[candidate.uid]);
     const isWhitelisted = Boolean(candidate.uid && rules.upWhitelist[candidate.uid]);
     ui.blockUp.textContent = isBlacklisted ? "该创作者已在黑名单" : `拉黑创作者：${candidate.upName}`;
@@ -118,7 +118,11 @@
   function handleManualDislike() {
     const candidate = contextCandidate;
     closeVideoContextMenu();
-    if (!candidate || learning.samples[candidate.bvid]) return;
+    if (!candidate) return;
+    if (learning.samples[candidate.bvid]) {
+      removeLearningSample(candidate.bvid);
+      return;
+    }
 
     const now = new Date().toISOString();
     learning.samples[candidate.bvid] = {

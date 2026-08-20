@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- AI-Model-Signature: Codex | 2026-08-20 | 验证不喜欢样本的列表撤销、右键撤销和偏好重建 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>不喜欢样本撤销集成测试</title>
+</head>
+<body>
+  <div class="bili-video-card" id="undo-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Undo0001" title="需要撤销的样本">需要撤销的样本</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">撤销样本 UP</a>
+  </div>
+  <div class="bili-video-card" id="keep-card">
+    <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Keep0002" title="需要保留的样本">需要保留的样本</a>
+    <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">保留样本 UP</a>
+  </div>
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+    window.__BAF_FORCE_FEED_ROOT__ = true;
+    window.__confirmCount = 0;
+    window.confirm = () => {
+      window.__confirmCount += 1;
+      return true;
+    };
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: {} })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 3, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {
+          BV1Undo0001: {
+            bvid: "BV1Undo0001",
+            title: "需要撤销的样本",
+            uid: "10001",
+            upName: "撤销样本 UP",
+            addedAt: "2026-08-20T02:00:00.000Z",
+            analysis: "撤销样本分析",
+            traits: ["撤销特征"],
+            analyzedAt: "2026-08-20T02:01:00.000Z"
+          },
+          BV1Keep0002: {
+            bvid: "BV1Keep0002",
+            title: "需要保留的样本",
+            uid: "20002",
+            upName: "保留样本 UP",
+            addedAt: "2026-08-20T01:00:00.000Z",
+            analysis: "保留样本分析",
+            traits: ["保留特征"],
+            analyzedAt: "2026-08-20T01:01:00.000Z"
+          }
+        },
+        learnedProfile: "旧画像同时包含撤销特征和保留特征",
+        updatedAt: "2026-08-20T02:01:00.000Z"
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {
+          BV1Undo0001: {
+            bvid: "BV1Undo0001",
+            title: "需要撤销的样本",
+            uid: "10001",
+            upName: "撤销样本 UP",
+            match: true,
+            confidence: 0.99,
+            reason: "旧判断",
+            criteriaKey: "old-criteria",
+            judgedAt: "2026-08-20T02:02:00.000Z"
+          },
+          BV1Other003: {
+            bvid: "BV1Other003",
+            title: "无关缓存",
+            uid: "30003",
+            upName: "无关 UP",
+            match: false,
+            confidence: 0.1,
+            reason: "",
+            criteriaKey: "other-criteria",
+            judgedAt: "2026-08-20T00:00:00.000Z"
+          }
+        },
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => {
+      throw new Error("撤销样本不应调用 AI");
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      window.__beforeListUndo = {
+        undoHidden: document.querySelector("#undo-card").classList.contains("baf-hidden"),
+        keepHidden: document.querySelector("#keep-card").classList.contains("baf-hidden"),
+        twoRows: document.querySelectorAll("#baf-learning-list .baf-learning-item").length === 2,
+        twoButtons: document.querySelectorAll("#baf-learning-list .baf-delete").length === 2
+      };
+      const undoRow = [...document.querySelectorAll("#baf-learning-list .baf-learning-item")]
+        .find((row) => row.querySelector("strong")?.textContent === "需要撤销的样本");
+      undoRow?.querySelector(".baf-delete")?.click();
+    }, 300);
+
+    setTimeout(() => {
+      const learning = JSON.parse(store.get("baf.learning.v1"));
+      const cache = JSON.parse(store.get("baf.ai-cache.v1"));
+      window.__afterListUndo = {
+        sampleRemoved: !learning.samples.BV1Undo0001,
+        remainingSampleKept: Boolean(learning.samples.BV1Keep0002),
+        removedCardVisible: !document.querySelector("#undo-card").classList.contains("baf-hidden"),
+        remainingCardHidden: document.querySelector("#keep-card").classList.contains("baf-hidden"),
+        profileRebuilt: learning.learnedProfile.includes("保留特征")
+          && !learning.learnedProfile.includes("撤销特征"),
+        removedCacheDeleted: !cache.entries.BV1Undo0001,
+        unrelatedCacheKept: Boolean(cache.entries.BV1Other003),
+        countUpdated: document.querySelector("#baf-learning-count").textContent === "1"
+      };
+
+      document.querySelector("#keep-card").dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 40
+      }));
+      window.__contextUndoLabel = document.querySelector("#baf-dislike").textContent.includes("撤销不喜欢");
+      document.querySelector("#baf-dislike").click();
+    }, 650);
+
+    setTimeout(() => {
+      const learning = JSON.parse(store.get("baf.learning.v1"));
+      const cache = JSON.parse(store.get("baf.ai-cache.v1"));
+      const details = {
+        initialState: Object.values(window.__beforeListUndo || {}).every(Boolean),
+        listUndo: Object.values(window.__afterListUndo || {}).every(Boolean),
+        contextUndoLabel: window.__contextUndoLabel === true,
+        secondSampleRemoved: !learning.samples.BV1Keep0002,
+        secondCardVisible: !document.querySelector("#keep-card").classList.contains("baf-hidden"),
+        profileCleared: learning.learnedProfile === "" && learning.updatedAt === "",
+        listEmpty: document.querySelector("#baf-learning-count").textContent === "0"
+          && document.querySelector("#baf-learning-list").textContent.includes("添加不喜欢样本"),
+        relatedCachesRemoved: !cache.entries.BV1Undo0001 && !cache.entries.BV1Keep0002,
+        unrelatedCacheStillKept: Boolean(cache.entries.BV1Other003),
+        bothActionsConfirmed: window.__confirmCount === 2
+      };
+      const result = document.querySelector("#baf-test-result");
+      result.textContent = Object.values(details).every(Boolean) ? "PASS" : "FAIL";
+      result.dataset.details = JSON.stringify(details);
+    }, 1000);
+  </script>
+</body>
+</html>

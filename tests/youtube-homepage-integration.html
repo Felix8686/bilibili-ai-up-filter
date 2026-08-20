@@ -93,6 +93,7 @@
   <script>
     window.__BAF_FORCE_SITE__ = "youtube";
     window.__BAF_FORCE_HOMEPAGE__ = true;
+    window.confirm = () => true;
 
     const store = new Map([
       ["baf.settings.v1", JSON.stringify({

@@ -171,6 +171,63 @@
     };
   }
 
+  function rebuildLearnedProfileFromSamples(value) {
+    const normalized = normalizeLearning({
+      ...(value && typeof value === "object" ? value : {}),
+      learnedProfile: "",
+      updatedAt: "",
+    });
+    const samples = Object.values(normalized.samples)
+      .sort((left, right) => right.addedAt.localeCompare(left.addedAt));
+    const seenTraits = new Set();
+    const traits = [];
+    const seenAnalyses = new Set();
+    const analyses = [];
+
+    samples.forEach((sample) => {
+      sample.traits.forEach((item) => {
+        const trait = normalizeText(item).slice(0, 50);
+        const key = trait.toLocaleLowerCase();
+        if (!trait || seenTraits.has(key) || traits.length >= 24) return;
+        seenTraits.add(key);
+        traits.push(trait);
+      });
+      const analysis = normalizeText(sample.analysis).slice(0, 160);
+      const analysisKey = analysis.toLocaleLowerCase();
+      if (!analysis || seenAnalyses.has(analysisKey) || analyses.length >= 8) return;
+      seenAnalyses.add(analysisKey);
+      analyses.push(analysis);
+    });
+
+    const sections = [];
+    if (traits.length) sections.push(`不喜欢的内容特征：${traits.join("、")}`);
+    if (analyses.length) sections.push(`样本分析：${analyses.join("；")}`);
+    return normalizeText(sections.join("。")).slice(0, 600);
+  }
+
+  function removeLearningSampleData(
+    learningValue,
+    aiCacheValue,
+    videoId,
+    updatedAt = new Date().toISOString()
+  ) {
+    const nextLearning = normalizeLearning(learningValue);
+    const nextAiCache = normalizeAiCache(aiCacheValue);
+    const bvid = extractVideoId(videoId);
+    const removedSample = nextLearning.samples[bvid] || null;
+    if (!removedSample) {
+      return { removedSample, learning: nextLearning, aiCache: nextAiCache };
+    }
+
+    delete nextLearning.samples[bvid];
+    nextLearning.learnedProfile = rebuildLearnedProfileFromSamples(nextLearning);
+    nextLearning.updatedAt = nextLearning.learnedProfile && isValidDateString(updatedAt)
+      ? updatedAt
+      : "";
+    delete nextAiCache.entries[bvid];
+    return { removedSample, learning: nextLearning, aiCache: nextAiCache };
+  }
+
   function normalizeRules(value) {
     const source = value && typeof value === "object" ? value : {};
     const sourceWhitelist = source.upWhitelist && typeof source.upWhitelist === "object"

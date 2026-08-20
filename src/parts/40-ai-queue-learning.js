@@ -50,6 +50,7 @@
 
     requestInFlight = true;
     const requestGeneration = monitoringGeneration;
+    const requestLearningRevision = learningRevision;
     batchRecords.forEach((record) => sessionAiSent.add(record.candidate.fingerprint));
     setStatus(`正在判断 ${batchRecords.length} 个首页推荐……`, "");
     const config = getActiveApiConfig();
@@ -59,7 +60,9 @@
         batchRecords.map((record) => record.candidate),
         config
       );
-      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) {
+      if (settings.monitoringPaused
+        || requestGeneration !== monitoringGeneration
+        || requestLearningRevision !== learningRevision) {
         batchRecords.forEach((record) => {
           sessionJudgments.delete(record.candidate.fingerprint);
         });
@@ -94,7 +97,9 @@
         "ok"
       );
     } catch (error) {
-      if (settings.monitoringPaused || requestGeneration !== monitoringGeneration) {
+      if (settings.monitoringPaused
+        || requestGeneration !== monitoringGeneration
+        || requestLearningRevision !== learningRevision) {
         batchRecords.forEach((record) => {
           sessionJudgments.delete(record.candidate.fingerprint);
         });
@@ -194,6 +199,7 @@
 
     learningRequestInFlight = true;
     const requestGeneration = monitoringGeneration;
+    const requestLearningRevision = learningRevision;
     sessionLearningAttempts.add(sample.bvid);
     setStatus(`AI 正在分析不喜欢样本“${sample.title}”……`, "");
     let learned = false;
@@ -204,6 +210,7 @@
         model: settings.models[settings.provider],
         apiKey,
       });
+      if (requestLearningRevision !== learningRevision) return;
       if (!explicitManualLearning
         && (settings.monitoringPaused || requestGeneration !== monitoringGeneration)) return;
       const current = learning.samples[sample.bvid];
@@ -225,6 +232,7 @@
       );
       learned = true;
     } catch (error) {
+      if (requestLearningRevision !== learningRevision) return;
       if (!explicitManualLearning
         && (settings.monitoringPaused || requestGeneration !== monitoringGeneration)) return;
       const status = Number(error.status || 0);
@@ -232,7 +240,16 @@
       setStatus(`不喜欢样本已保存；${formatApiError(error, "AI 学习")}`, "error");
     } finally {
       learningRequestInFlight = false;
-      if (learned && !settings.monitoringPaused) {
+      if (requestLearningRevision !== learningRevision) {
+        sessionLearningAttempts.delete(sample.bvid);
+      }
+      if (requestLearningRevision !== learningRevision
+        && explicitManualLearning
+        && learning.samples[sample.bvid]) {
+        window.setTimeout(() => processPendingLearning(options), BATCH_DELAY_MS);
+      } else if (requestLearningRevision !== learningRevision && !settings.monitoringPaused) {
+        window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
+      } else if (learned && !settings.monitoringPaused) {
         window.setTimeout(processPendingLearning, BATCH_DELAY_MS);
       } else if (!explicitManualLearning
         && !settings.monitoringPaused

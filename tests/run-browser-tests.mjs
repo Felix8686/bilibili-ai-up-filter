@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const fixtures = [
   "tests/homepage-integration.html",
+  "tests/learning-undo-integration.html",
   "tests/youtube-homepage-integration.html",
   "tests/youtube-navigation-integration.html",
   "tests/youtube-trusted-types-integration.html",
