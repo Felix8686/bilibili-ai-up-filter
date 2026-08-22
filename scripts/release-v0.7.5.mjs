@@ -62,9 +62,9 @@ if (!/<h2>v0\.7\.5 更新<\/h2>/u.test(readme)) {
   ].join("\n");
   readme = replaceRequired(
     readme,
-    /  <h2>v0\.7\.4 更新<\/h2>/u,
-    `${section}  <h2>v0.7.4 更新</h2>`,
-    "README v0.7.4 section"
+    /  <h2>安装<\/h2>/u,
+    `${section}  <h2>安装</h2>`,
+    "README install section"
   );
 }
 write("README.md", readme);
