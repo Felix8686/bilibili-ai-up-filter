@@ -44,9 +44,9 @@ if (!readme.includes("添加 v0.7.5 B 站首页推广视频屏蔽说明")) {
 if (!readme.includes("B 站首页推广视频卡片会在本地直接识别并隐藏")) {
   readme = replaceRequired(
     readme,
-    /(<li>只有本地规则和缓存无法确定时才调用 AI，减少 API token 消耗。<\/li>)/u,
+    /(<li>支持两站首页首屏、无限滚动，以及 B 站“换一换”和 YouTube 站内导航后产生的新卡片。<\/li>)/u,
     "$1\n    <li>B 站首页推广视频卡片会在本地直接识别并隐藏，不进入 AI 判断队列，也不会消耗 API token。</li>",
-    "README feature list"
+    "README current scope list"
   );
 }
 if (!/<h2>v0\.7\.5 更新<\/h2>/u.test(readme)) {
