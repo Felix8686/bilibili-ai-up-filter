@@ -1,5 +1,5 @@
 # AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 在 GitHub 自动运行用户脚本完整回归测试
-# AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 临时自动准备 v0.7.5 发布文件并回写功能分支
+# AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 临时通过 PR 工作流准备 v0.7.5 发布文件并回写功能分支
 name: Test userscript
 
 on:
@@ -15,16 +15,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feat/block-bilibili-promotions
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Prepare v0.7.5 release files
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/block-bilibili-promotions'
         run: node scripts/release-v0.7.5.mjs
       - name: Run syntax, core and browser tests
         run: node tests/run-all.mjs
       - name: Commit generated release files
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/block-bilibili-promotions'
         run: |
           if git diff --quiet; then
             echo "No generated release changes"
