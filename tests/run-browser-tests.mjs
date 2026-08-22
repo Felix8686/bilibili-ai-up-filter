@@ -1,4 +1,5 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 无第三方依赖运行首页浏览器集成测试
+// AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 增加 B 站首页推广卡片回归测试
 
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,6 +10,7 @@ import { spawnSync } from "node:child_process";
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const fixtures = [
   "tests/homepage-integration.html",
+  "tests/bilibili-promotion-integration.html",
   "tests/learning-undo-integration.html",
   "tests/youtube-homepage-integration.html",
   "tests/youtube-navigation-integration.html",
