@@ -1,5 +1,4 @@
 # AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 在 GitHub 自动运行用户脚本完整回归测试
-# AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 临时通过 PR 工作流准备 v0.7.5 发布文件并回写功能分支
 name: Test userscript
 
 on:
@@ -7,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -15,23 +14,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feat/block-bilibili-promotions
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Prepare v0.7.5 release files
-        run: node scripts/release-v0.7.5.mjs
       - name: Run syntax, core and browser tests
         run: node tests/run-all.mjs
-      - name: Commit generated release files
-        run: |
-          if git diff --quiet; then
-            echo "No generated release changes"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/parts/00-bootstrap.js README.md CHANGELOG.md GREASYFORK_DESCRIPTION.html bilibili-ai-up-filter.user.js
-          git commit -m "chore(release): prepare v0.7.5"
-          git push origin HEAD:feat/block-bilibili-promotions
