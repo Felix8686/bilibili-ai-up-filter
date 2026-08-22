@@ -1,6 +1,20 @@
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 初始化可组合的用户脚本源码片段
 // AI-Model-Signature: grok-4.5 | 2026-07-19 | Shadow DOM 穿透查询与 YouTube 右键卡片识别
 // AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 区分自动过滤与手动右键所需的频道信息完整度
+// AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 屏蔽 B 站首页推广卡片并阻止其进入 AI 判断
+
+  const BILIBILI_PROMOTION_MARKER_SELECTOR = [
+    ".bili-video-card__info--ad",
+    '[href*="cm.bilibili.com"]',
+    ".bili-video-card__info--creative-ad",
+    ".vui_icon.bili-video-card__stats--icon",
+    ".bili-video-card__stats > svg",
+    ".bili-video-card__stats > .bili-video-card__stats--text",
+    ".bili-video-card__info--tit > a:not([href])",
+    "[data-be-promotion-mark]",
+    ".ad-report",
+    ".video-card-ad-small",
+  ].join(", ");
 
   function startPageObserver() {
     const handleNavigation = () => window.setTimeout(syncHomepageRuntime, 0);
@@ -112,8 +126,12 @@
       return;
     }
 
+    const promotedCards = collectBilibiliPromotedCards(site, feedRoot);
+    const promotionHiddenCount = settings.enabled ? promotedCards.length : 0;
+    promotedCards.forEach((card) => setCardHidden(card, settings.enabled));
+
     const candidates = collectCandidates(site, feedRoot);
-    let hiddenCount = 0;
+    let hiddenCount = promotionHiddenCount;
     let waitingCount = 0;
 
     candidates.forEach((candidate) => {
@@ -181,8 +199,10 @@
           : apiBlocked
             ? "；API 已暂停，请检查配置"
             : "";
-    const savedCalls = sessionLocalRuleHits.size + sessionCacheHits.size;
-    ui.summary.textContent = `${site.label} 首页识别 ${candidates.length} 个，隐藏 ${hiddenCount} 个，待判断 ${waitingCount} 个；本页已省 ${savedCalls} 次 AI 判断（本地 ${sessionLocalRuleHits.size}，缓存 ${sessionCacheHits.size}），实际送 AI ${sessionAiSent.size} 个${missingConfig}`;
+    const savedCalls = sessionLocalRuleHits.size + sessionCacheHits.size + promotionHiddenCount;
+    const recognizedCount = candidates.length + promotedCards.length;
+    const promotionSummary = site.id === "bilibili" ? `（推广 ${promotionHiddenCount}）` : "";
+    ui.summary.textContent = `${site.label} 首页识别 ${recognizedCount} 个，隐藏 ${hiddenCount} 个${promotionSummary}，待判断 ${waitingCount} 个；本页已省 ${savedCalls} 次 AI 判断（本地 ${sessionLocalRuleHits.size}，缓存 ${sessionCacheHits.size}，推广 ${promotionHiddenCount}），实际送 AI ${sessionAiSent.size} 个${missingConfig}`;
     updateToggle();
   }
 
@@ -278,6 +298,43 @@
       || isHomepageLocation(location.hostname, location.pathname);
   }
 
+  function getBilibiliPromotionCard(node) {
+    if (!(node instanceof Element)) return null;
+    const selector = [
+      ".feed-card",
+      ".bili-feed-card",
+      ".bili-video-card",
+      ".video-card",
+      ".bili-rich-item",
+      "article",
+    ].join(", ");
+    const card = closestAcrossShadow(node, selector);
+    if (card && card !== document.body && card !== document.documentElement) return card;
+    return node.matches("[data-be-promotion-mark], .ad-report, .adcard, .video-card-ad-small")
+      ? node
+      : null;
+  }
+
+  function isBilibiliPromotedCard(card) {
+    if (!(card instanceof Element)) return false;
+    if (card.matches("[data-be-promotion-mark], .ad-report, .adcard, .video-card-ad-small")) {
+      return true;
+    }
+    return Boolean(deepQuerySelector(card, BILIBILI_PROMOTION_MARKER_SELECTOR));
+  }
+
+  function collectBilibiliPromotedCards(site = getActiveSiteConfig(), root = feedRoot) {
+    if (site?.id !== "bilibili") return [];
+    const searchRoot = root instanceof Element || root instanceof Document ? root : document;
+    const promotedCards = new Set();
+    deepQuerySelectorAll(searchRoot, BILIBILI_PROMOTION_MARKER_SELECTOR).forEach((marker) => {
+      if (!(marker instanceof Element) || ui.root.contains(marker)) return;
+      const card = getBilibiliPromotionCard(marker);
+      if (card && isBilibiliPromotedCard(card)) promotedCards.add(card);
+    });
+    return [...promotedCards];
+  }
+
   function collectCandidates(site = getActiveSiteConfig(), root = feedRoot) {
     if (!site) return [];
     const searchRoot = root instanceof Element || root instanceof Document ? root : document;
@@ -327,7 +384,9 @@
   }
 
   function isExcludedCard(card, link, site) {
-    if (!(card instanceof Element) || site?.id !== "youtube") return false;
+    if (!(card instanceof Element)) return false;
+    if (site?.id === "bilibili") return isBilibiliPromotedCard(card);
+    if (site?.id !== "youtube") return false;
     const href = String(link?.getAttribute?.("href") || link?.href || "");
     if (/\/shorts\//i.test(href)) return true;
     if (closestAcrossShadow(card, "ytd-rich-section-renderer")) return true;
