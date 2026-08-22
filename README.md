@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 添加 v0.7.5 B 站首页推广视频屏蔽说明 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.0 使用说明与发布记录 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.1 YouTube 右键菜单修复说明 -->
   <!-- AI-Model-Signature: grok-4.5 | 2026-07-19 | 更新 v0.7.2 Shadow DOM 右键修复说明 -->
@@ -5,7 +6,7 @@
   <!-- AI-Model-Signature: Codex | 2026-08-20 | 更新 v0.7.4 不喜欢样本撤销、偏好重建与测试修复说明 -->
   <h1>B站 / YouTube 首页 AI 视频过滤器</h1>
 
-  <p>当前版本：<strong>v0.7.4</strong></p>
+  <p>当前版本：<strong>v0.7.5</strong></p>
   <p>作者：<strong>Felix8686</strong></p>
 
   <p>这是一个 Tampermonkey 用户脚本。它会先用本地白名单、黑名单、标题关键词和正则规则判断 B 站及 YouTube 首页推荐；只有本地规则无法确定且没有可用缓存的视频，才会批量交给用户配置的 AI 接口进行语义判断。AI 命中只隐藏当前视频，不会自动永久拉黑整个创作者；同一创作者多次高置信度命中后，脚本会提示用户自行确认是否拉黑。</p>
@@ -14,6 +15,7 @@
   <ul>
     <li>处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。</li>
     <li>支持两站首页首屏、无限滚动，以及 B 站“换一换”和 YouTube 站内导航后产生的新卡片。</li>
+    <li>B 站首页推广视频卡片会在本地直接识别并隐藏，不进入 AI 判断队列，也不会消耗 API token。</li>
     <li>支持在首页视频卡片上右键添加或撤销不喜欢样本，并自动生成 AI 偏好画像；兼容 B 站 BV、AV 链接和 YouTube <code>/watch?v=</code> 标准视频。</li>
     <li>支持右键手动拉黑创作者或加入创作者白名单。</li>
     <li>支持本地标题黑白名单，规则可以是普通关键词或 <code>/正则表达式/</code>。</li>
@@ -24,6 +26,13 @@
     <li>判断失败时保持视频显示，不会因为 API 故障自动拉黑。</li>
   </ul>
 
+  <h2>v0.7.5 更新</h2>
+  <ul>
+    <li>新增 B 站首页推广视频屏蔽：识别广告标记、推广链接、creative-ad、推广统计图标及 promotion 属性等多类信号。</li>
+    <li>推广卡片完全在本地处理，不进入 AI 分类、缓存或主动学习队列，避免额外 API 消耗。</li>
+    <li>支持首页首屏、换一换、无限滚动和动态插入的新推广卡片；关闭首页过滤时恢复显示。</li>
+    <li>状态摘要单独统计推广隐藏数量，并计入节省的 AI 判断次数。</li>
+  </ul>
   <h2>安装</h2>
   <ol>
     <li>在 Chrome 或 Edge 安装 Tampermonkey。</li>
