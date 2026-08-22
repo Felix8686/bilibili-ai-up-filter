@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 验证 B 站首页推广卡片本地屏蔽与 AI 队列隔离 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>B站推广卡片屏蔽集成测试</title>
+</head>
+<body>
+  <main>
+    <div class="bili-video-card" id="promotion-card">
+      <a class="bili-video-card__image--link" href="https://www.bilibili.com/video/BV1Promo0001"></a>
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Promo0001" title="推广视频示例">推广视频示例</a>
+      <span class="bili-video-card__info--ad">推广</span>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">推广账号</a>
+    </div>
+
+    <div class="bili-video-card" id="normal-card">
+      <a class="bili-video-card__image--link" href="https://www.bilibili.com/video/BV1Normal001"></a>
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1Normal001" title="正常推荐视频">正常推荐视频</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">正常 UP</a>
+    </div>
+  </main>
+
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_HOMEPAGE__ = true;
+    window.__BAF_FORCE_FEED_ROOT__ = true;
+    window.confirm = () => true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: { deepseek: "" } })],
+      ["baf.blacklist.v1", JSON.stringify({ schemaVersion: 3, entries: {} })],
+      ["baf.learning.v1", JSON.stringify({ schemaVersion: 3, samples: {}, learnedProfile: "", updatedAt: "" })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({ schemaVersion: 3, entries: {}, ignoredUpSuggestions: {} })]
+    ]);
+
+    let aiRequests = 0;
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => { aiRequests += 1; };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      const promotionHidden = document.querySelector("#promotion-card").classList.contains("baf-hidden");
+      const normalVisible = !document.querySelector("#normal-card").classList.contains("baf-hidden");
+      const noAiRequest = aiRequests === 0;
+      const summary = document.querySelector("#baf-summary")?.textContent || "";
+      const promotionCountVisible = /推广\s*1/u.test(summary);
+      const passed = promotionHidden && normalVisible && noAiRequest && promotionCountVisible;
+      const result = document.querySelector("#baf-test-result");
+      result.dataset.details = JSON.stringify({
+        promotionHidden,
+        normalVisible,
+        noAiRequest,
+        promotionCountVisible,
+        summary,
+      });
+      result.textContent = passed ? "PASS" : "FAIL";
+    }, 800);
+  </script>
+</body>
+</html>
