@@ -1,6 +1,25 @@
+# Operating systems and editors
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Local settings and exported backups
 *.local.*
 *.backup.json
+
+# Credentials and private configuration
+.env
+.env.*
+!.env.example
+auth.json
+credentials.json
+secrets/
+*.pem
+*.key
+*.p12
+*.token
+
+# Logs and temporary files
+*.log
+tmp/
