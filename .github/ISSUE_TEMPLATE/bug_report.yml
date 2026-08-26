@@ -1,0 +1,62 @@
+name: Bug 报告
+description: 报告可复现的功能异常；请勿提交 API Key、Cookie 或个人数据
+title: "[Bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请确认问题发生在 B 站或 YouTube 首页，并删除截图、日志和导出文件中的敏感信息。
+  - type: input
+    id: version
+    attributes:
+      label: 脚本版本
+      placeholder: 例如 v0.7.5
+    validations:
+      required: true
+  - type: dropdown
+    id: site
+    attributes:
+      label: 发生问题的网站
+      options:
+        - B站首页
+        - YouTube首页
+        - 两者都有
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器与 Tampermonkey 版本
+      placeholder: 例如 Chrome 140 / Tampermonkey 5.x
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请按顺序描述操作和页面状态
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 出现……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 可提供已经脱敏的截图或控制台错误；不要提交 API Key、Cookie、Token、账号资料或完整浏览记录
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私确认
+      options:
+        - label: 我已确认反馈内容不包含 API Key、Cookie、Token 或个人数据
+          required: true
