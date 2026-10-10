@@ -1,0 +1,212 @@
+<!doctype html>
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 验证搜索页结果手动右键过滤、拉黑创作者与本地规则生效 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>搜索页结果手动过滤集成测试</title>
+</head>
+<body>
+  <div class="search-layout">
+    <!-- 1. 正常搜索卡片 -->
+    <div class="bili-video-card" id="bili-normal-card">
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SearchNormal01" title="正常搜索结果视频">正常搜索结果视频</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/10001">正常创作者 UP</a>
+    </div>
+
+    <!-- 2. 已在黑名单中的 UP 卡片 -->
+    <div class="bili-video-card" id="bili-preblack-card">
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SearchPreBlack02" title="黑名单UP的搜索视频">黑名单UP的搜索视频</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/20002">预置黑名单 UP</a>
+    </div>
+
+    <!-- 3. 已标记不喜欢的卡片 -->
+    <div class="bili-video-card" id="bili-predislike-card">
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SearchPreDislike03" title="已标记不喜欢的视频">已标记不喜欢的视频</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/30003">某个 UP</a>
+    </div>
+
+    <!-- 4. 准备手动标记不喜欢的卡片 -->
+    <div class="bili-video-card" id="bili-to-dislike-card">
+      <a class="bili-video-card__info--tit" id="bili-dislike-link" href="https://www.bilibili.com/video/BV1SearchToDislike04" title="待手动不喜欢的视频">待手动不喜欢的视频</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/40004">待不喜欢 UP</a>
+    </div>
+
+    <!-- 5. 准备手动拉黑 UP 的卡片 A -->
+    <div class="bili-video-card" id="bili-to-block-card-1">
+      <a class="bili-video-card__info--tit" id="bili-block-link" href="https://www.bilibili.com/video/BV1SearchToBlock05" title="待拉黑创作者的视频一">待拉黑创作者的视频一</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/50005">待拉黑目标 UP</a>
+    </div>
+
+    <!-- 6. 同一 UP 的另一张卡片 B（拉黑后应一并隐藏） -->
+    <div class="bili-video-card" id="bili-to-block-card-2">
+      <a class="bili-video-card__info--tit" href="https://www.bilibili.com/video/BV1SearchToBlock06" title="待拉黑创作者的视频二">待拉黑创作者的视频二</a>
+      <a class="bili-video-card__info--author" href="https://space.bilibili.com/50005">待拉黑目标 UP</a>
+    </div>
+  </div>
+
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SEARCH__ = true;
+    window.__BAF_FORCE_SITE__ = "bilibili";
+    window.__BAF_FORCE_FEED_ROOT__ = true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: {} })],
+      ["baf.blacklist.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {
+          "20002": {
+            uid: "20002",
+            name: "预置黑名单 UP",
+            sourceTitle: "旧标题",
+            reason: "手动拉黑",
+            addedAt: "2026-10-01T00:00:00.000Z",
+            source: "manual"
+          }
+        }
+      })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {
+          BV1SearchPreDislike03: {
+            bvid: "BV1SearchPreDislike03",
+            title: "已标记不喜欢的视频",
+            uid: "30003",
+            upName: "某个 UP",
+            addedAt: "2026-10-01T00:00:00.000Z",
+            analysis: "",
+            traits: [],
+            analyzedAt: ""
+          }
+        },
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => {
+      throw new Error("搜索页手动过滤测试不应调用 AI 网络接口");
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      try {
+        const normalCard = document.querySelector("#bili-normal-card");
+        const preBlackCard = document.querySelector("#bili-preblack-card");
+        const preDislikeCard = document.querySelector("#bili-predislike-card");
+        const toDislikeCard = document.querySelector("#bili-to-dislike-card");
+
+        // 验证初始状态：正常卡片显示，预置黑名单与预置不喜欢卡片在搜索页自动隐藏
+        if (normalCard.classList.contains("baf-hidden")) {
+          throw new Error("正常卡片不应被隐藏");
+        }
+        if (!preBlackCard.classList.contains("baf-hidden")) {
+          throw new Error("预置黑名单 UP 卡片未被隐藏");
+        }
+        if (!preDislikeCard.classList.contains("baf-hidden")) {
+          throw new Error("预置不喜欢卡片未被隐藏");
+        }
+        if (toDislikeCard.classList.contains("baf-hidden")) {
+          throw new Error("待操作卡片初始不应被隐藏");
+        }
+
+        // 测试操作 1：右键待不喜欢卡片，并点击“不喜欢此视频”
+        const dislikeLink = document.querySelector("#bili-dislike-link");
+        dislikeLink.dispatchEvent(new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 50,
+          clientY: 50
+        }));
+
+        const menu = document.querySelector("#baf-context-menu");
+        if (!menu.classList.contains("baf-visible")) {
+          throw new Error("在搜索页右键未弹出过滤菜单");
+        }
+
+        const dislikeBtn = document.querySelector("#baf-dislike");
+        dislikeBtn.click();
+
+        if (!toDislikeCard.classList.contains("baf-hidden")) {
+          throw new Error("点击不喜欢后视频卡片未隐藏");
+        }
+
+        const learningData = JSON.parse(store.get("baf.learning.v1"));
+        if (!learningData.samples.BV1SearchToDislike04) {
+          throw new Error("不喜欢样本未保存到存储");
+        }
+
+        // 测试操作 2：右键待拉黑 UP 卡片，并点击“拉黑该创作者”
+        const blockLink = document.querySelector("#bili-block-link");
+        blockLink.dispatchEvent(new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 60,
+          clientY: 60
+        }));
+
+        if (!menu.classList.contains("baf-visible")) {
+          throw new Error("在搜索页第二次右键未弹出过滤菜单");
+        }
+
+        const blockBtn = document.querySelector("#baf-block-up");
+        blockBtn.click();
+
+        setTimeout(() => {
+          try {
+            const toBlockCard1 = document.querySelector("#bili-to-block-card-1");
+            const toBlockCard2 = document.querySelector("#bili-to-block-card-2");
+            if (!toBlockCard1.classList.contains("baf-hidden")) {
+              throw new Error("拉黑创作者后目标卡片 1 未隐藏");
+            }
+            if (!toBlockCard2.classList.contains("baf-hidden")) {
+              throw new Error("拉黑创作者后同创作者卡片 2 未隐藏");
+            }
+
+            const blacklistData = JSON.parse(store.get("baf.blacklist.v1"));
+            if (!blacklistData.entries["50005"]) {
+              throw new Error("创作者未成功写入黑名单存储");
+            }
+
+            const result = document.querySelector("#baf-test-result");
+            result.textContent = "PASS";
+          } catch (innerErr) {
+            const result = document.querySelector("#baf-test-result");
+            result.textContent = "FAIL";
+            result.setAttribute("data-details", innerErr.message);
+          }
+        }, 80);
+      } catch (err) {
+        const result = document.querySelector("#baf-test-result");
+        result.textContent = "FAIL";
+        result.setAttribute("data-details", err.message);
+      }
+    }, 150);
+  </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 验证 YouTube 搜索页 ytd-video-renderer 卡片手动右键过滤与黑名单 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>YouTube 搜索页手动过滤集成测试</title>
+</head>
+<body>
+  <ytd-search>
+    <div id="contents">
+      <!-- 1. 正常搜索卡片 -->
+      <ytd-video-renderer id="yt-normal-card">
+        <a id="thumbnail" href="/watch?v=ytNormal001"></a>
+        <a id="video-title" href="/watch?v=ytNormal001" title="YouTube 正常搜索结果">YouTube 正常搜索结果</a>
+        <ytd-channel-name><a href="/@goodchannel">Good Channel</a></ytd-channel-name>
+      </ytd-video-renderer>
+
+      <!-- 2. 已在黑名单中的频道卡片 -->
+      <ytd-video-renderer id="yt-preblack-card">
+        <a id="thumbnail" href="/watch?v=ytPreBlk002"></a>
+        <a id="video-title" href="/watch?v=ytPreBlk002" title="黑名单频道的搜索视频">黑名单频道的搜索视频</a>
+        <ytd-channel-name><a href="/@blackchannel">Black Channel</a></ytd-channel-name>
+      </ytd-video-renderer>
+
+      <!-- 3. 待手动不喜欢的卡片 -->
+      <ytd-video-renderer id="yt-to-dislike-card">
+        <a id="thumbnail" href="/watch?v=ytToDislk03"></a>
+        <a id="video-title" href="/watch?v=ytToDislk03" title="待不喜欢的 YouTube 视频">待不喜欢的 YouTube 视频</a>
+        <ytd-channel-name><a href="/@channel3">Channel 3</a></ytd-channel-name>
+      </ytd-video-renderer>
+
+      <!-- 4. 待拉黑频道的卡片 A -->
+      <ytd-video-renderer id="yt-to-block-card-1">
+        <a id="thumbnail" href="/watch?v=ytToBlk0004"></a>
+        <a id="video-title" href="/watch?v=ytToBlk0004" title="待拉黑频道的视频 1">待拉黑频道的视频 1</a>
+        <ytd-channel-name><a href="/@spamchannel">Spam Channel</a></ytd-channel-name>
+      </ytd-video-renderer>
+
+      <!-- 5. 待拉黑频道的卡片 B -->
+      <ytd-video-renderer id="yt-to-block-card-2">
+        <a id="thumbnail" href="/watch?v=ytToBlk0005"></a>
+        <a id="video-title" href="/watch?v=ytToBlk0005" title="待拉黑频道的视频 2">待拉黑频道的视频 2</a>
+        <ytd-channel-name><a href="/@spamchannel">Spam Channel</a></ytd-channel-name>
+      </ytd-video-renderer>
+    </div>
+  </ytd-search>
+
+  <div id="baf-test-result">PENDING</div>
+
+  <script>
+    window.__BAF_FORCE_SEARCH__ = true;
+    window.__BAF_FORCE_SITE__ = "youtube";
+    window.__BAF_FORCE_FEED_ROOT__ = true;
+
+    const store = new Map([
+      ["baf.settings.v1", JSON.stringify({
+        schemaVersion: 3,
+        enabled: true,
+        monitoringPaused: true,
+        description: "",
+        provider: "deepseek",
+        models: { deepseek: "deepseek-v4-flash" }
+      })],
+      ["baf.secret.v1", JSON.stringify({ schemaVersion: 3, keys: {} })],
+      ["baf.blacklist.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {
+          "yt:handle:blackchannel": {
+            uid: "yt:handle:blackchannel",
+            name: "Black Channel",
+            sourceTitle: "旧标题",
+            reason: "手动拉黑",
+            addedAt: "2026-10-01T00:00:00.000Z",
+            source: "manual"
+          }
+        }
+      })],
+      ["baf.learning.v1", JSON.stringify({
+        schemaVersion: 3,
+        samples: {},
+        learnedProfile: "",
+        updatedAt: ""
+      })],
+      ["baf.rules.v1", JSON.stringify({
+        schemaVersion: 3,
+        titleBlacklist: [],
+        titleWhitelist: [],
+        upWhitelist: {},
+        pendingSuggestions: { blacklist: [], whitelist: [] }
+      })],
+      ["baf.ai-cache.v1", JSON.stringify({
+        schemaVersion: 3,
+        entries: {},
+        ignoredUpSuggestions: {}
+      })]
+    ]);
+
+    window.GM_getValue = (key, fallback) => store.has(key) ? store.get(key) : fallback;
+    window.GM_setValue = (key, value) => store.set(key, value);
+    window.GM_registerMenuCommand = () => {};
+    window.GM_xmlhttpRequest = () => {
+      throw new Error("YouTube 搜索页测试不应调用 AI 网络接口");
+    };
+  </script>
+  <script src="../bilibili-ai-up-filter.user.js"></script>
+  <script>
+    setTimeout(() => {
+      try {
+        const normalCard = document.querySelector("#yt-normal-card");
+        const preBlackCard = document.querySelector("#yt-preblack-card");
+        const toDislikeCard = document.querySelector("#yt-to-dislike-card");
+
+        if (normalCard.classList.contains("baf-hidden")) {
+          throw new Error("正常卡片不应被隐藏");
+        }
+        if (!preBlackCard.classList.contains("baf-hidden")) {
+          throw new Error("预置黑名单频道卡片未被隐藏");
+        }
+        if (toDislikeCard.classList.contains("baf-hidden")) {
+          throw new Error("待操作卡片初始不应被隐藏");
+        }
+
+        // 测试操作 1：右键待不喜欢卡片
+        const dislikeTitle = toDislikeCard.querySelector("#video-title");
+        dislikeTitle.dispatchEvent(new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 50,
+          clientY: 50
+        }));
+
+        const menu = document.querySelector("#baf-context-menu");
+        if (!menu.classList.contains("baf-visible")) {
+          throw new Error("在 YouTube 搜索页右键未弹出过滤菜单");
+        }
+
+        const dislikeBtn = document.querySelector("#baf-dislike");
+        dislikeBtn.click();
+
+        if (!toDislikeCard.classList.contains("baf-hidden")) {
+          throw new Error("点击不喜欢后 YouTube 视频卡片未隐藏");
+        }
+
+        const learningData = JSON.parse(store.get("baf.learning.v1"));
+        if (!learningData.samples["yt:ytToDislk03"]) {
+          throw new Error("YouTube 不喜欢样本未以命名空间保存");
+        }
+
+        // 测试操作 2：右键待拉黑频道卡片
+        const blockCard1 = document.querySelector("#yt-to-block-card-1");
+        const blockTitle = blockCard1.querySelector("#video-title");
+        blockTitle.dispatchEvent(new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 60,
+          clientY: 60
+        }));
+
+        if (!menu.classList.contains("baf-visible")) {
+          throw new Error("在 YouTube 搜索页第二次右键未弹出过滤菜单");
+        }
+
+        const blockBtn = document.querySelector("#baf-block-up");
+        blockBtn.click();
+
+        setTimeout(() => {
+          try {
+            const toBlockCard1 = document.querySelector("#yt-to-block-card-1");
+            const toBlockCard2 = document.querySelector("#yt-to-block-card-2");
+            if (!toBlockCard1.classList.contains("baf-hidden")) {
+              throw new Error("拉黑频道后目标卡片 1 未隐藏");
+            }
+            if (!toBlockCard2.classList.contains("baf-hidden")) {
+              throw new Error("拉黑频道后同频道卡片 2 未隐藏");
+            }
+
+            const blacklistData = JSON.parse(store.get("baf.blacklist.v1"));
+            if (!blacklistData.entries["yt:handle:spamchannel"]) {
+              throw new Error("频道未成功写入黑名单存储");
+            }
+
+            const result = document.querySelector("#baf-test-result");
+            result.textContent = "PASS";
+          } catch (innerErr) {
+            const result = document.querySelector("#baf-test-result");
+            result.textContent = "FAIL";
+            result.setAttribute("data-details", innerErr.message);
+          }
+        }, 80);
+      } catch (err) {
+        const result = document.querySelector("#baf-test-result");
+        result.textContent = "FAIL";
+        result.setAttribute("data-details", err.message);
+      }
+    }, 150);
+  </script>
+</body>
+</html>

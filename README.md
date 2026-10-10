@@ -1,4 +1,5 @@
-<!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 添加 v0.7.5 B 站首页推广视频屏蔽说明 -->
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 添加 v0.8.0 搜索页结果手动过滤说明 -->
+  <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 添加 v0.7.5 B 站首页推广视频屏蔽说明 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.0 使用说明与发布记录 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新 v0.7.1 YouTube 右键菜单修复说明 -->
   <!-- AI-Model-Signature: grok-4.5 | 2026-07-19 | 更新 v0.7.2 Shadow DOM 右键修复说明 -->
@@ -6,24 +7,33 @@
   <!-- AI-Model-Signature: Codex | 2026-08-20 | 更新 v0.7.4 不喜欢样本撤销、偏好重建与测试修复说明 -->
   <h1>B站 / YouTube 首页 AI 视频过滤器</h1>
 
-  <p>当前版本：<strong>v0.7.5</strong></p>
+  <p>当前版本：<strong>v0.8.0</strong></p>
   <p>作者：<strong>Felix8686</strong></p>
 
-  <p>这是一个 Tampermonkey 用户脚本。它会先用本地白名单、黑名单、标题关键词和正则规则判断 B 站及 YouTube 首页推荐；只有本地规则无法确定且没有可用缓存的视频，才会批量交给用户配置的 AI 接口进行语义判断。AI 命中只隐藏当前视频，不会自动永久拉黑整个创作者；同一创作者多次高置信度命中后，脚本会提示用户自行确认是否拉黑。</p>
+  <p>这是一个 Tampermonkey 用户脚本。它会先用本地白名单、黑名单、标题关键词和正则规则判断 B 站及 YouTube 首页推荐；只有本地规则无法确定且没有可用缓存的视频，才会批量交给用户配置的 AI 接口进行语义判断。AI 命中只隐藏当前视频，不会自动永久拉黑整个创作者；同一创作者多次高置信度命中后，脚本会提示用户自行确认是否拉黑。此外，搜索页结果也支持右键手动过滤、拉黑创作者和本地规则直接生效。</p>
 
   <h2>当前版本范围</h2>
   <ul>
-    <li>处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。</li>
+    <li>处理 <code>https://www.bilibili.com/</code>、<code>https://search.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页与搜索结果页。</li>
     <li>支持两站首页首屏、无限滚动，以及 B 站“换一换”和 YouTube 站内导航后产生的新卡片。</li>
+    <li>支持在 B 站与 YouTube 搜索结果卡片上右键执行手动过滤（不喜欢视频、拉黑创作者、加入白名单）；搜索页不启动自动 AI 监视，无额外 token 消耗。</li>
     <li>B 站首页推广视频卡片会在本地直接识别并隐藏，不进入 AI 判断队列，也不会消耗 API token。</li>
-    <li>支持在首页视频卡片上右键添加或撤销不喜欢样本，并自动生成 AI 偏好画像；兼容 B 站 BV、AV 链接和 YouTube <code>/watch?v=</code> 标准视频。</li>
+    <li>支持在视频卡片上右键添加或撤销不喜欢样本，并自动生成 AI 偏好画像；兼容 B 站 BV、AV 链接和 YouTube <code>/watch?v=</code> 标准视频。</li>
     <li>支持右键手动拉黑创作者或加入创作者白名单。</li>
     <li>支持本地标题黑白名单，规则可以是普通关键词或 <code>/正则表达式/</code>。</li>
-    <li>只观察首页推荐区域；离开首页后停止卡片扫描和 AI 队列。</li>
+    <li>只在首页和搜索页启用过滤，离开后停止卡片扫描和 AI 队列。</li>
     <li>会拒绝可能造成网页卡顿的高风险正则表达式，并在保存时说明原因。</li>
     <li>YouTube Shorts 和广告会跳过；频道标识缺失的卡片不进入自动 AI 队列，但在视频 ID 与标题可用时仍可右键手动隐藏和学习。</li>
-    <li>不处理搜索页、排行榜、订阅页、视频播放页、B站 App 或观看历史。</li>
+    <li>不处理排行榜、订阅页、视频播放页、B站 App 或观看历史。</li>
     <li>判断失败时保持视频显示，不会因为 API 故障自动拉黑。</li>
+  </ul>
+
+  <h2>v0.8.0 更新</h2>
+  <ul>
+    <li>新增搜索页结果手动过滤：支持 B 站搜索（<code>search.bilibili.com</code>）与 YouTube 搜索（<code>/results</code>）。</li>
+    <li>搜索结果卡片支持右键弹出过滤菜单，支持不喜欢视频、拉黑创作者、始终显示创作者以及撤销不喜欢。</li>
+    <li>搜索页结果自动应用本地创作者黑名单、不喜欢样本与标题黑名单；不执行自动 AI 分类与批量请求，不消耗额外 token。</li>
+    <li>拉黑创作者后即时更新并隐藏搜索页上来自该创作者的全部卡片。</li>
   </ul>
 
   <h2>v0.7.5 更新</h2>

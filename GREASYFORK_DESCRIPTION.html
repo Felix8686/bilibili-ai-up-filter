@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 更新 v0.8.0 搜索页结果手动过滤说明 -->
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 更新 v0.7.5 B 站首页推广视频屏蔽说明 -->
 <!doctype html>
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 更新仓库内 v0.7.0 发布介绍，不执行 Greasy Fork 手动操作 -->
@@ -68,7 +69,14 @@
   <p>API Key 仅保存在当前 Tampermonkey 脚本的本地存储中，不会写入导出文件。请注意，浏览器本地存储不等同于系统级密码保险箱，请使用单独创建、额度受控的 API Key。</p>
 
   <h2>当前范围</h2>
-  <p>当前版本处理 <code>https://www.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页。YouTube 仅处理标准视频推荐；Shorts 与广告会跳过。频道标识缺失的卡片不进入自动 AI 队列，但在视频 ID 与标题可用时可右键手动隐藏。搜索页、订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
+  <p>当前版本处理 <code>https://www.bilibili.com/</code>、<code>https://search.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页与搜索结果页。YouTube 仅处理标准视频推荐与搜索结果；Shorts 与广告会跳过。搜索页结果支持本地规则过滤与右键手动拉黑/不喜欢，且不启动自动 AI 监视，无额外 token 消耗。订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
+
+  <h2>v0.8.0 更新</h2>
+  <ul>
+    <li>新增搜索页结果手动过滤支持：覆盖 B 站搜索与 YouTube 搜索结果卡片。</li>
+    <li>支持在搜索结果上右键不喜欢视频、拉黑创作者或加入白名单；拉黑后即时隐藏该创作者的所有搜索结果。</li>
+    <li>搜索结果加载时自动生效本地黑名单与不喜欢样本，搜索页不启动自动 AI 监视与批量分类队列，零额外 token 消耗。</li>
+  </ul>
 
   <h2>v0.7.5 更新</h2>
   <ul>

@@ -11,7 +11,7 @@
   }
   function registerVideoContextMenu() {
     document.addEventListener("contextmenu", (event) => {
-      if (!isHomepage() || event.shiftKey) return;
+      if (!isSupportedPage() || event.shiftKey) return;
       const candidate = getCandidateFromEvent(event);
       if (!candidate) return;
 

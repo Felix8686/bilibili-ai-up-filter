@@ -62,6 +62,20 @@ test("limits both supported sites to their homepage", () => {
   assert.equal(api.isHomepageLocation("www.youtube.com", "/watch"), false);
 });
 
+test("identifies search page locations on Bilibili and YouTube", () => {
+  assert.equal(api.resolveSiteId("search.bilibili.com"), "bilibili");
+  assert.equal(api.isSearchLocation("search.bilibili.com", "/all"), true);
+  assert.equal(api.isSearchLocation("search.bilibili.com", "/video"), true);
+  assert.equal(api.isSearchLocation("www.bilibili.com", "/search"), true);
+  assert.equal(api.isSearchLocation("www.bilibili.com", "/"), false);
+  assert.equal(api.isSearchLocation("www.bilibili.com", "/video/BV1test"), false);
+  assert.equal(api.isSearchLocation("www.youtube.com", "/results"), true);
+  assert.equal(api.isSearchLocation("youtube.com", "/results"), true);
+  assert.equal(api.isSearchLocation("www.youtube.com", "/"), false);
+  assert.equal(api.isSearchLocation("www.youtube.com", "/watch"), false);
+  assert.equal(api.isSearchLocation("unknown.com", "/results"), false);
+});
+
 test("normalizes text and rejects unsupported providers", () => {
   assert.equal(api.normalizeText("  测试\n\t标题  "), "测试 标题");
   const settings = api.normalizeSettings({

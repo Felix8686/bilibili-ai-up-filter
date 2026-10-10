@@ -27,7 +27,7 @@
     document.addEventListener("yt-navigate-start", handleNavigationStart);
     document.addEventListener("yt-navigate-finish", handleNavigation);
     document.addEventListener("yt-page-data-updated", () => {
-      if (!isHomepage()) return;
+      if (!isSupportedPage()) return;
       ensureFeedObserver();
       scheduleScan(SCAN_DELAY_MS);
     });
@@ -36,7 +36,7 @@
 
   function syncHomepageRuntime() {
     syncPageContext();
-    if (!isHomepage()) {
+    if (!isSupportedPage()) {
       deactivateHomepageRuntime();
       return;
     }
@@ -60,7 +60,7 @@
   }
 
   function ensureFeedObserver() {
-    if (!isHomepage()) return;
+    if (!isSupportedPage()) return;
     const nextFeedRoot = findHomepageFeedRoot();
     if (!nextFeedRoot) {
       scheduleFeedLookup();
@@ -82,17 +82,25 @@
   }
 
   function findHomepageFeedRoot(site = getActiveSiteConfig()) {
-    if (!site || !isHomepage()) return null;
+    if (!site || !isSupportedPage()) return null;
     if (globalThis.__BAF_FORCE_FEED_ROOT__) return document.body || document.documentElement;
     for (const selector of site.feedSelectors || []) {
       const root = document.querySelector(selector);
       if (root) return root;
     }
+    if (isSearchPage()) {
+      if (site.id === "bilibili") {
+        return document.querySelector(".search-layout, .body-contain, #server-search-app, #app") || document.body;
+      }
+      if (site.id === "youtube") {
+        return document.querySelector("ytd-search") || document.querySelector("#primary") || document.body;
+      }
+    }
     return null;
   }
 
   function scheduleFeedLookup() {
-    if (feedLookupTimer || !isHomepage()) return;
+    if (feedLookupTimer || !isSupportedPage()) return;
     const delay = feedLookupAttempts < FEED_LOOKUP_FAST_ATTEMPTS
       ? FEED_LOOKUP_DELAY_MS
       : FEED_LOOKUP_SLOW_DELAY_MS;
@@ -112,27 +120,54 @@
   function scanHomepage() {
     syncPageContext();
     const site = getActiveSiteConfig();
-    if (!site || !isHomepage()) {
+    if (!site || !isSupportedPage()) {
       clearHiddenCards();
       ui.summary.textContent = site
-        ? `${site.label} 当前仅处理首页推荐`
+        ? `${site.label} 当前仅处理首页推荐与搜索页`
         : "当前页面不在支持范围内";
       return;
     }
 
     ensureFeedObserver();
     if (!feedRoot) {
-      ui.summary.textContent = `${site.label} 首页推荐区域加载中；尚未调用 AI`;
+      const pageLabel = isSearchPage() ? "搜索结果" : "首页推荐";
+      ui.summary.textContent = `${site.label} ${pageLabel}区域加载中；尚未调用 AI`;
       return;
     }
 
-    const promotedCards = collectBilibiliPromotedCards(site, feedRoot);
+    const promotedCards = site.id === "bilibili" ? collectBilibiliPromotedCards(site, feedRoot) : [];
     const promotionHiddenCount = settings.enabled ? promotedCards.length : 0;
     promotedCards.forEach((card) => setCardHidden(card, settings.enabled));
 
     const candidates = collectCandidates(site, feedRoot);
     let hiddenCount = promotionHiddenCount;
     let waitingCount = 0;
+
+    if (isSearchPage()) {
+      candidates.forEach((candidate) => {
+        candidate.card.dataset.bafUid = candidate.uid || "";
+        candidate.card.dataset.bafSite = candidate.site;
+
+        if (!settings.enabled) {
+          setCardHidden(candidate.card, false);
+          return;
+        }
+
+        const localDecision = getLocalDecision(candidate);
+        if (localDecision.action !== "none") {
+          sessionLocalRuleHits.add(candidate.fingerprint);
+          setCardHidden(candidate.card, localDecision.action === "hide");
+          if (localDecision.action === "hide") hiddenCount += 1;
+        } else {
+          setCardHidden(candidate.card, false);
+        }
+      });
+
+      const promotionSummary = site.id === "bilibili" && promotionHiddenCount > 0 ? `（推广 ${promotionHiddenCount}）` : "";
+      ui.summary.textContent = `${site.label} 搜索页识别 ${candidates.length + promotedCards.length} 个，隐藏 ${hiddenCount} 个${promotionSummary}（手动过滤与黑名单）；搜索页不调用自动 AI`;
+      updateToggle();
+      return;
+    }
 
     candidates.forEach((candidate) => {
       candidate.card.dataset.bafUid = candidate.uid || "";
@@ -256,7 +291,7 @@
 
   function resolveSiteId(hostname) {
     const host = String(hostname || "").trim().toLowerCase().replace(/\.$/, "");
-    if (host === "www.bilibili.com") return "bilibili";
+    if (host === "www.bilibili.com" || host === "search.bilibili.com") return "bilibili";
     if (host === "www.youtube.com" || host === "youtube.com") return "youtube";
     return "";
   }
@@ -269,10 +304,24 @@
     return false;
   }
 
+  function isSearchLocation(hostname, pathname) {
+    const host = String(hostname || "").trim().toLowerCase().replace(/\.$/, "");
+    const siteId = resolveSiteId(host);
+    const path = String(pathname || "/");
+    if (siteId === "bilibili") {
+      return host === "search.bilibili.com" || path.startsWith("/search");
+    }
+    if (siteId === "youtube") {
+      return path === "/results" || path.startsWith("/results");
+    }
+    return false;
+  }
+
   function getActiveSiteConfig() {
     const forcedSite = String(globalThis.__BAF_FORCE_SITE__ || "");
     if (SITE_CONFIGS[forcedSite]) return SITE_CONFIGS[forcedSite];
     if (globalThis.__BAF_FORCE_HOMEPAGE__) return SITE_CONFIGS.bilibili;
+    if (globalThis.__BAF_FORCE_SEARCH__) return SITE_CONFIGS.bilibili;
     return SITE_CONFIGS[resolveSiteId(location.hostname)] || null;
   }
 
@@ -296,6 +345,15 @@
   function isHomepage() {
     return Boolean(globalThis.__BAF_FORCE_HOMEPAGE__)
       || isHomepageLocation(location.hostname, location.pathname);
+  }
+
+  function isSearchPage() {
+    return Boolean(globalThis.__BAF_FORCE_SEARCH__)
+      || isSearchLocation(location.hostname, location.pathname);
+  }
+
+  function isSupportedPage() {
+    return isHomepage() || isSearchPage();
   }
 
   function getBilibiliPromotionCard(node) {
@@ -390,6 +448,7 @@
     const href = String(link?.getAttribute?.("href") || link?.href || "");
     if (/\/shorts\//i.test(href)) return true;
     if (closestAcrossShadow(card, "ytd-rich-section-renderer")) return true;
+    if (closestAcrossShadow(card, "ytd-reel-shelf-renderer")) return true;
     if (card.hasAttribute("is-ad")) return true;
     return Boolean(deepQuerySelector(card, [
       "ytd-ad-slot-renderer",
