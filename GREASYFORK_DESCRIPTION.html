@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-11-13 | 更新 v0.8.1 修复模型输出截断与 Token 预算说明 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 更新 v0.8.0 搜索页结果手动过滤说明 -->
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 更新 v0.7.5 B 站首页推广视频屏蔽说明 -->
 <!doctype html>
@@ -70,6 +71,14 @@
 
   <h2>当前范围</h2>
   <p>当前版本处理 <code>https://www.bilibili.com/</code>、<code>https://search.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页与搜索结果页。YouTube 仅处理标准视频推荐与搜索结果；Shorts 与广告会跳过。搜索页结果支持本地规则过滤与右键手动拉黑/不喜欢，且不启动自动 AI 监视，无额外 token 消耗。订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
+
+  <h2>v0.8.1 更新</h2>
+  <ul>
+    <li>修复模型 JSON 输出截断问题：单批判断视频数量从 10 降为 5（<code>BATCH_SIZE = 5</code>），减少响应体积并提升判断速度。</li>
+    <li>大幅调高分类与重试 Token 预算：重试上限提升至 4096 tokens，首次判断上限提高为 <code>300 + count * 120</code>。</li>
+    <li>通义千问、智谱 GLM、豆包、Kimi 等服务商请求中扩大自动关闭思考（thinking）参数的适配范围，避免模型思维链耗尽 Token 额度。</li>
+    <li>针对 OpenAI <code>o1</code> / <code>o3</code> 模型自动适配 <code>reasoning_effort: "low"</code> 并剔除不兼容的 <code>temperature</code> 参数。</li>
+  </ul>
 
   <h2>v0.8.0 更新</h2>
   <ul>

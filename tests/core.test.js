@@ -258,15 +258,15 @@ test("parses strict JSON model results including fenced output", () => {
 });
 
 test("uses a low initial classification budget and a bounded recovery budget", () => {
-  assert.equal(api.getClassificationTokenBudget(1), 190);
-  assert.equal(api.getClassificationTokenBudget(10), 820);
-  assert.equal(api.getClassificationTokenBudget(100), 900);
-  assert.equal(api.getClassificationTokenBudget(1, true), 1200);
-  assert.equal(api.getClassificationTokenBudget(10, true), 2040);
-  assert.equal(api.getClassificationTokenBudget(100, true), 2400);
-  assert.equal(api.getStructuredRecoveryTokenBudget(960), 1200);
+  assert.equal(api.getClassificationTokenBudget(1), 420);
+  assert.equal(api.getClassificationTokenBudget(10), 1500);
+  assert.equal(api.getClassificationTokenBudget(100), 1800);
+  assert.equal(api.getClassificationTokenBudget(1, true), 1500);
+  assert.equal(api.getClassificationTokenBudget(10, true), 3600);
+  assert.equal(api.getClassificationTokenBudget(100, true), 4096);
+  assert.equal(api.getStructuredRecoveryTokenBudget(960), 1500);
   assert.equal(api.getStructuredRecoveryTokenBudget(1650), 1650);
-  assert.equal(api.getStructuredRecoveryTokenBudget(9999), 2400);
+  assert.equal(api.getStructuredRecoveryTokenBudget(9999), 4096);
 });
 
 test("diagnoses empty and truncated structured model responses", () => {

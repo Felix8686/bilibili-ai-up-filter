@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: gemini-3.8-flash | 2026-11-13 | 添加 v0.8.1 修复模型 JSON 输出截断发布记录 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 添加 v0.8.0 搜索页结果手动右键过滤发布记录 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 添加 v0.7.5 B 站首页推广视频屏蔽发布记录 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-07-19 | 添加 v0.7.0 正式发布记录 -->
@@ -5,6 +6,15 @@
   <!-- AI-Model-Signature: grok-4.5 | 2026-07-19 | 添加 v0.7.2 Shadow DOM 右键修复与 v0.7.3 自动监视默认关闭 -->
   <!-- AI-Model-Signature: Codex | 2026-08-20 | 添加 v0.7.4 不喜欢样本撤销、偏好重建与 CI 修复 -->
   <h1>版本记录</h1>
+  <h2>v0.8.1（2026-11-13）</h2>
+  <p>修复 AI 判断时模型输出被截断（<code>finish_reason: length</code>）导致失败的问题，优化 Token 预算与主流模型兼容性。</p>
+  <ul>
+    <li>将首页自动 AI 监视单批处理数量从 10 降为 5（<code>BATCH_SIZE = 5</code>），减少单次 JSON 响应长度与模型输出负担，提升首屏响应速度。</li>
+    <li>大幅调高分类与修复 Token 预算：重试上限提升至 4096 tokens，首次判断上限提高为 <code>300 + count * 120</code>，给长偏好画像和详细判断留足充裕空间。</li>
+    <li>扩展通义千问（Qwen）、智谱（GLM）、豆包、Kimi 等服务商的“关闭思考”参数支持，自动在请求体中注入 <code>enable_thinking: false</code> 或 <code>thinking: { type: "disabled" }</code>，避免思维链耗尽输出额度。</li>
+    <li>针对 OpenAI <code>o1</code> / <code>o3</code> 模型自动适配 <code>reasoning_effort: "low"</code> 并剔除不兼容的 <code>temperature</code> 参数。</li>
+    <li>强化 Prompt 约束，限定命中原因在 15 字以内，未命中项 reason 留空，严禁输出推理过程；优化截断报错提示以展示思考消耗。</li>
+  </ul>
   <h2>v0.8.0（2026-10-10）</h2>
   <p>新增搜索页结果手动过滤支持，允许在 B 站和 YouTube 搜索结果中通过右键菜单直接隐藏视频、拉黑创作者或加入白名单。</p>
   <ul>
