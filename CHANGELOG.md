@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: Codex | 2026-11-25 | 添加 v0.8.2 API Key DOM 隔离安全修复记录 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-11-13 | 添加 v0.8.1 修复模型 JSON 输出截断发布记录 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 添加 v0.8.0 搜索页结果手动右键过滤发布记录 -->
   <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 添加 v0.7.5 B 站首页推广视频屏蔽发布记录 -->
@@ -6,6 +7,15 @@
   <!-- AI-Model-Signature: grok-4.5 | 2026-07-19 | 添加 v0.7.2 Shadow DOM 右键修复与 v0.7.3 自动监视默认关闭 -->
   <!-- AI-Model-Signature: Codex | 2026-08-20 | 添加 v0.7.4 不喜欢样本撤销、偏好重建与 CI 修复 -->
   <h1>版本记录</h1>
+  <h2>v0.8.2（2026-11-25）</h2>
+  <p>修复已保存 API Key 被回填到目标页面 DOM、可能被页面脚本读取的问题。</p>
+  <ul>
+    <li>设置面板不再显示或回填 Tampermonkey 隔离存储中的既有 API Key。</li>
+    <li>空输入保留原凭据，测试连接与规则建议通过用户脚本运行上下文读取既有 Key。</li>
+    <li>新增显式清除按钮与确认步骤；关闭设置面板时清空输入框。</li>
+    <li>增加回归测试，禁止未来重新引入“把持久化 Key 写入页面 DOM”的代码。</li>
+  </ul>
+
   <h2>v0.8.1（2026-11-13）</h2>
   <p>修复 AI 判断时模型输出被截断（<code>finish_reason: length</code>）导致失败的问题，优化 Token 预算与主流模型兼容性。</p>
   <ul>

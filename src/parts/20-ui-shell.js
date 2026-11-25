@@ -237,11 +237,12 @@
         type: "password",
         maxLength: 500,
         autocomplete: "new-password",
-        placeholder: "只保存在 Tampermonkey 本地",
+        placeholder: "输入 API Key（仅保存于 Tampermonkey）",
       }),
       createUiElement("div", { id: "baf-provider-note", className: "baf-rule-note" }),
       createUiElement("div", { className: "baf-actions" }, [
         createUiElement("button", { id: "baf-test", type: "button", text: "测试连接" }),
+        createUiElement("button", { id: "baf-clear-api-key", type: "button", text: "清除已保存 Key" }),
         createUiElement("button", { id: "baf-export", type: "button", text: "导出" }),
         createUiElement("button", { id: "baf-import", type: "button", text: "导入" }),
       ]),
@@ -361,6 +362,7 @@
       providerNote: root.querySelector("#baf-provider-note"),
       save: root.querySelector("#baf-save"),
       test: root.querySelector("#baf-test"),
+      clearApiKey: root.querySelector("#baf-clear-api-key"),
       exportButton: root.querySelector("#baf-export"),
       importButton: root.querySelector("#baf-import"),
       importFile: root.querySelector("#baf-import-file"),
@@ -387,14 +389,22 @@
 
     elements.toggle.addEventListener("click", () => {
       root.classList.toggle("baf-open");
-      if (root.classList.contains("baf-open")) syncPanel();
+      if (root.classList.contains("baf-open")) {
+        syncPanel();
+      } else {
+        elements.apiKey.value = "";
+      }
     });
     elements.monitorToggle.addEventListener("click", handleMonitoringToggle);
     elements.autoMonitor.addEventListener("change", handleAutoMonitorCheckboxChange);
-    elements.close.addEventListener("click", () => root.classList.remove("baf-open"));
+    elements.close.addEventListener("click", () => {
+      root.classList.remove("baf-open");
+      elements.apiKey.value = "";
+    });
     elements.provider.addEventListener("change", handleProviderChange);
     elements.save.addEventListener("click", handleSave);
     elements.test.addEventListener("click", handleConnectionTest);
+    elements.clearApiKey.addEventListener("click", handleClearApiKey);
     elements.exportButton.addEventListener("click", exportBackup);
     elements.importButton.addEventListener("click", () => elements.importFile.click());
     elements.importFile.addEventListener("change", importBackup);
