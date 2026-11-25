@@ -16,6 +16,12 @@ vm.runInContext(source, sandbox, { filename: scriptPath });
 
 const api = sandbox.__BAF_TEST_API__;
 
+test("never copies persisted API keys into the page DOM", () => {
+  assert.equal(source.includes("ui.apiKey.value = secrets.keys"), false);
+  assert.match(source, /apiKey: apiKeyInput \|\| secrets\.keys\[provider\] \|\| ""/);
+  assert.match(source, /id: "baf-clear-api-key"/);
+});
+
 test("extracts BVID and UP UID from Bilibili URLs", () => {
   assert.equal(api.extractBvid("https://www.bilibili.com/video/BV1Ab411c7mD?p=1"), "BV1Ab411c7mD");
   assert.equal(api.extractBvid("https://www.bilibili.com/read/cv1"), "");

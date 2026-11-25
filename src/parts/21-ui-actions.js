@@ -200,6 +200,14 @@
     scheduleScan(0);
   }
 
+  function clearApiKeyInput() {
+    if (!ui?.apiKey) return;
+    ui.apiKey.value = "";
+    ui.apiKey.placeholder = secrets.keys[panelProvider]
+      ? "已保存 API Key；留空保持不变"
+      : "输入 API Key（仅保存于 Tampermonkey）";
+  }
+
   function syncPanel() {
     panelProvider = settings.provider;
     ui.enabled.checked = settings.enabled;
@@ -207,7 +215,7 @@
     ui.description.value = settings.description;
     ui.provider.value = panelProvider;
     ui.model.value = settings.models[panelProvider];
-    ui.apiKey.value = secrets.keys[panelProvider];
+    clearApiKeyInput();
     ui.providerNote.textContent = PROVIDERS[panelProvider].hint;
     ui.titleBlacklist.value = rules.titleBlacklist.join("\n");
     ui.titleWhitelist.value = rules.titleWhitelist.join("\n");
@@ -224,15 +232,17 @@
       ui.model.value,
       PROVIDERS[panelProvider].defaultModel
     );
-    secrets.keys[panelProvider] = normalizeSecret(ui.apiKey.value);
+    const enteredApiKey = normalizeSecret(ui.apiKey.value);
+    if (enteredApiKey) secrets.keys[panelProvider] = enteredApiKey;
     panelProvider = ui.provider.value;
     ui.model.value = settings.models[panelProvider];
-    ui.apiKey.value = secrets.keys[panelProvider];
+    clearApiKeyInput();
     ui.providerNote.textContent = PROVIDERS[panelProvider].hint;
   }
 
   function readPanelValues() {
     const provider = ui.provider.value;
+    const apiKeyInput = normalizeSecret(ui.apiKey.value);
     const invalidRegexRules = [
       ...findInvalidRegexRules(ui.titleBlacklist.value),
       ...findInvalidRegexRules(ui.titleWhitelist.value),
@@ -243,7 +253,8 @@
       description: ui.description.value.trim().slice(0, 500),
       provider,
       model: normalizeModel(ui.model.value, PROVIDERS[provider].defaultModel),
-      apiKey: normalizeSecret(ui.apiKey.value),
+      apiKeyInput,
+      apiKey: apiKeyInput || secrets.keys[provider] || "",
       titleBlacklist: normalizeRuleList(ui.titleBlacklist.value.split(/\r?\n/)),
       titleWhitelist: normalizeRuleList(ui.titleWhitelist.value.split(/\r?\n/)),
       invalidRegexRules,
@@ -319,7 +330,7 @@
     settings.description = values.description;
     settings.provider = values.provider;
     settings.models[values.provider] = values.model;
-    secrets.keys[values.provider] = values.apiKey;
+    if (values.apiKeyInput) secrets.keys[values.provider] = values.apiKeyInput;
     rules.titleBlacklist = values.titleBlacklist;
     rules.titleWhitelist = values.titleWhitelist;
     panelProvider = values.provider;
@@ -340,6 +351,28 @@
     syncPanel();
     scheduleScan(0);
     if (!settings.monitoringPaused) processPendingLearning();
+  }
+
+  function handleClearApiKey() {
+    const provider = ui.provider.value;
+    const hasStoredKey = Boolean(secrets.keys[provider]);
+    const hasEnteredKey = Boolean(normalizeSecret(ui.apiKey.value));
+    if (!hasStoredKey && !hasEnteredKey) {
+      setStatus("当前服务商没有已保存的 API Key", "ok");
+      return;
+    }
+    if (
+      typeof window.confirm === "function" &&
+      !window.confirm(`确定清除 ${PROVIDERS[provider].label} 的已保存 API Key？`)
+    ) {
+      return;
+    }
+    secrets.keys[provider] = "";
+    ui.apiKey.value = "";
+    panelProvider = provider;
+    saveSettingsAndSecrets();
+    clearApiKeyInput();
+    setStatus(`已清除 ${PROVIDERS[provider].label} 的 API Key`, "ok");
   }
 
   function handleMonitoringToggle(event) {

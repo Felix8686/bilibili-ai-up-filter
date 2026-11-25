@@ -1,3 +1,4 @@
+<!-- AI-Model-Signature: Codex | 2026-11-25 | 更新 v0.8.2 API Key DOM 隔离安全说明 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-11-13 | 更新 v0.8.1 修复模型输出截断与 Token 预算说明 -->
 <!-- AI-Model-Signature: gemini-3.8-flash | 2026-10-10 | 更新 v0.8.0 搜索页结果手动过滤说明 -->
 <!-- AI-Model-Signature: gpt-5.6-sol | 2026-08-22 | 更新 v0.7.5 B 站首页推广视频屏蔽说明 -->
@@ -67,10 +68,17 @@
 
   <h2>隐私与安全</h2>
   <p>自动 AI 监视默认关闭。只有你开启自动监视且本地规则/缓存无法判断，或主动学习/测试连接时，脚本才会把过滤描述、偏好画像、近期不喜欢样本标题、待判断视频标题和页面显示的创作者名称发送给你选择的 API 服务商。脚本不会主动发送 B 站或 YouTube Cookie、账号资料、频道标识或页面正文。</p>
-  <p>API Key 仅保存在当前 Tampermonkey 脚本的本地存储中，不会写入导出文件。请注意，浏览器本地存储不等同于系统级密码保险箱，请使用单独创建、额度受控的 API Key。</p>
+  <p>API Key 仅保存在当前 Tampermonkey 脚本的本地存储中，不会写入导出文件，也不会把已保存的 Key 回填到 B 站或 YouTube 页面的 DOM。只有用户主动输入新 Key 的短暂过程会使用密码输入框；请继续使用单独创建、额度受控的 API Key。</p>
 
   <h2>当前范围</h2>
   <p>当前版本处理 <code>https://www.bilibili.com/</code>、<code>https://search.bilibili.com/</code> 和 <code>https://www.youtube.com/</code> 首页与搜索结果页。YouTube 仅处理标准视频推荐与搜索结果；Shorts 与广告会跳过。搜索页结果支持本地规则过滤与右键手动拉黑/不喜欢，且不启动自动 AI 监视，无额外 token 消耗。订阅页、排行榜、视频播放页、B站 App、观看历史和自动云同步均不处理。按住 <kbd>Shift</kbd> 再点击右键，可以使用浏览器原生右键菜单。</p>
+
+  <h2>v0.8.2 更新</h2>
+  <ul>
+    <li>修复已保存 API Key 被回填到目标页面 DOM 的安全问题，页面脚本无法再从隐藏设置面板读取既有 Key。</li>
+    <li>输入框留空会保留既有凭据，并新增带确认的“清除已保存 Key”按钮。</li>
+    <li>关闭面板时立即清空尚未保存的输入值。</li>
+  </ul>
 
   <h2>v0.8.1 更新</h2>
   <ul>
